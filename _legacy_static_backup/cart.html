@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Miee — السلة</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" /><link rel="stylesheet" href="language.css" /><link rel="stylesheet" href="header.css" /><link rel="stylesheet" href="cart.css" />
+</head>
+<body>
+  <div class="announcement"><div class="ticker"><span>دفع عند الاستلام</span><i></i><span>توصيل سريع إلى 58 ولاية</span><i></i><span>تبديل سهل خلال 15 يوماً</span><i></i></div></div>
+  <header class="site-header cart-header"><a class="brand" href="index.html" aria-label="العودة للرئيسية"><img src="miee-logo.jpg" alt="Miee" /></a><a class="back-link" href="index.html">← <span>مواصلة التسوق</span></a><div class="secure-note">✦ دفع آمن عند الاستلام</div></header>
+  <main class="cart-page">
+    <section class="cart-main"><p class="eyebrow">MIEE / YOUR SELECTION</p><div class="cart-title"><h1>سلتكِ <em>الأنيقة.</em></h1><span id="item-count">0 قطعة</span></div><div class="cart-items" id="cart-items"></div><div class="empty-cart" id="empty-cart"><span>✦</span><h2>سلتكِ بانتظار لمستك.</h2><p>اكتشفي قطع Miee المختارة بعناية، ثم عودي هنا لإتمام طلبك.</p><a href="index.html">اكتشفي المجموعة <b>↙</b></a></div></section>
+    <aside class="checkout" id="checkout">
+      <div class="checkout-top"><p class="eyebrow">تفاصيل الطلب</p><h2>أكملي <em>إطلالتكِ.</em></h2></div>
+      <div class="delivery-method"><label>طريقة الاستلام</label><div class="method-options"><button class="method active" data-method="office"><span>◫</span><b>التوصيل للمكتب</b><small>استلام من مكتب الشحن</small></button><button class="method" data-method="home"><span>⌂</span><b>التوصيل للمنزل</b><small>إلى عنوانك مباشرة</small></button></div></div>
+      <div class="form-grid"><label>الولاية<select id="wilaya"><option value="">اختاري ولايتك</option></select></label><label id="address-field" class="address-field">العنوان التفصيلي<input id="address" type="text" placeholder="الحي، الشارع، رقم المنزل" /></label><label>الاسم الكامل<input id="customer-name" type="text" placeholder="الاسم كما في بطاقة الهوية" /></label><label>رقم الهاتف<input id="phone" type="tel" placeholder="05 XX XX XX XX" /></label></div>
+      <div class="order-totals"><div><span>مجموع المنتجات</span><b id="subtotal">0 دج</b></div><div><span>سعر التوصيل</span><b id="shipping">—</b></div><div class="total"><span>المجموع الإجمالي</span><strong id="total">0 دج</strong></div></div>
+      <button id="place-order" class="place-order">اطلبي الآن <span>↙</span></button><p class="order-hint">بالضغط على الطلب، سنراجع التفاصيل ونتصل بكِ للتأكيد.</p>
+    </aside>
+  </main>
+  <section class="assurance"><div><b>01</b><span>الدفع عند الاستلام</span></div><div><b>02</b><span>توصيل إلى 58 ولاية</span></div><div><b>03</b><span>تبديل سهل خلال 15 يوماً</span></div></section>
+  <div class="success-modal" id="success-modal" aria-hidden="true"><div class="success-card"><div class="success-orbit"><span>✓</span></div><p class="eyebrow">MIEE SAYS THANK YOU</p><h2>تم إرسال<br><em>طلبكِ بنجاح.</em></h2><p>سنقوم بالاتصال بكِ في أقرب وقت لتأكيد الطلب وموعد التوصيل.</p><button id="continue-shopping">العودة للتسوق <span>↙</span></button></div></div>
+  <script src="cart.js"></script>
+</body>
+</html>

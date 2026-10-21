@@ -1,0 +1,9 @@
+/* Balanced header layout */
+.site-header{height:86px;position:sticky;top:0;border-bottom:1px solid rgba(18,18,18,.1);box-shadow:0 6px 20px rgba(18,18,18,.025);display:block;padding:0 5.2vw}
+.brand{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2}
+.desktop-nav{right:5.2vw;transform:none;height:100%;align-items:center;gap:25px}
+.header-actions{position:absolute;left:12vw;top:50%;transform:translateY(-50%);justify-self:auto}
+.language-switcher{left:5.2vw;top:50%;transform:translateY(-50%)}
+html[dir="ltr"] .desktop-nav{right:auto;left:5.2vw}html[dir="ltr"] .header-actions{left:auto;right:12vw}html[dir="ltr"] .language-switcher{left:auto;right:5.2vw}
+@media(max-width:800px){.site-header{height:72px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 6vw;position:relative}.brand{position:static;transform:none;grid-column:2}.menu-btn{grid-column:1;grid-row:1;justify-self:start}.header-actions{position:absolute;left:18vw;top:50%;transform:translateY(-50%);gap:9px}.language-switcher{left:5.5vw;top:50%;transform:translateY(-50%)}.header-actions .icon-btn svg,.header-actions .bag-btn svg{width:17px}.desktop-nav{display:none}html[dir="ltr"] .header-actions{left:auto;right:18vw}html[dir="ltr"] .language-switcher{left:auto;right:5.5vw}}
+@media(max-width:420px){.header-actions{left:20vw}.language-switcher{left:4vw}.language-switcher button{min-width:20px;padding:3px;font-size:7px}html[dir="ltr"] .header-actions{left:auto;right:20vw}html[dir="ltr"] .language-switcher{left:auto;right:4vw}}

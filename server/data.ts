@@ -1,0 +1,110 @@
+export interface ServerWilaya {
+  id: string;
+  name: string;
+  homePrice: number;
+  officePrice: number;
+}
+
+export const SERVER_WILAYAS: ServerWilaya[] = [
+  { id: '01', name: 'أدرار - Adrar', homePrice: 900, officePrice: 600 },
+  { id: '02', name: 'الشلف - Chlef', homePrice: 550, officePrice: 400 },
+  { id: '03', name: 'الأغواط - Laghouat', homePrice: 700, officePrice: 500 },
+  { id: '04', name: 'أم البواقي - Oum El Bouaghi', homePrice: 650, officePrice: 450 },
+  { id: '05', name: 'باتنة - Batna', homePrice: 650, officePrice: 450 },
+  { id: '06', name: 'بجاية - Béjaïa', homePrice: 550, officePrice: 400 },
+  { id: '07', name: 'بسكرة - Biskra', homePrice: 700, officePrice: 500 },
+  { id: '08', name: 'بشار - Béchar', homePrice: 1000, officePrice: 700 },
+  { id: '09', name: 'البليدة - Blida', homePrice: 500, officePrice: 350 },
+  { id: '10', name: 'البويرة - Bouira', homePrice: 550, officePrice: 400 },
+  { id: '11', name: 'تمنراست - Tamanrasset', homePrice: 1300, officePrice: 900 },
+  { id: '12', name: 'تبسة - Tébessa', homePrice: 700, officePrice: 500 },
+  { id: '13', name: 'تلمسان - Tlemcen', homePrice: 600, officePrice: 450 },
+  { id: '14', name: 'تيارت - Tiaret', homePrice: 600, officePrice: 450 },
+  { id: '15', name: 'تيزي وزو - Tizi Ouzou', homePrice: 550, officePrice: 400 },
+  { id: '16', name: 'الجزائر - Alger', homePrice: 450, officePrice: 300 },
+  { id: '17', name: 'الجلفة - Djelfa', homePrice: 700, officePrice: 500 },
+  { id: '18', name: 'جيجل - Jijel', homePrice: 600, officePrice: 450 },
+  { id: '19', name: 'سطيف - Sétif', homePrice: 600, officePrice: 450 },
+  { id: '20', name: 'سعيدة - Saïda', homePrice: 650, officePrice: 450 },
+  { id: '21', name: 'سكيكدة - Skikda', homePrice: 600, officePrice: 450 },
+  { id: '22', name: 'سيدي بلعباس - Sidi Bel Abbès', homePrice: 600, officePrice: 450 },
+  { id: '23', name: 'عنابة - Annaba', homePrice: 600, officePrice: 450 },
+  { id: '24', name: 'قالمة - Guelma', homePrice: 650, officePrice: 450 },
+  { id: '25', name: 'قسنطينة - Constantine', homePrice: 600, officePrice: 450 },
+  { id: '26', name: 'المدية - Médéa', homePrice: 550, officePrice: 400 },
+  { id: '27', name: 'مستغانم - Mostaganem', homePrice: 600, officePrice: 450 },
+  { id: '28', name: 'المسيلة - M\'Sila', homePrice: 650, officePrice: 450 },
+  { id: '29', name: 'معسكر - Mascara', homePrice: 600, officePrice: 450 },
+  { id: '30', name: 'ورقلة - Ouargla', homePrice: 850, officePrice: 600 },
+  { id: '31', name: 'وهران - Oran', homePrice: 550, officePrice: 400 },
+  { id: '32', name: 'البيض - El Bayadh', homePrice: 850, officePrice: 600 },
+  { id: '33', name: 'إليزي - Illizi', homePrice: 1500, officePrice: 1000 },
+  { id: '34', name: 'برج بوعريريج - Bordj Bou Arreridj', homePrice: 600, officePrice: 450 },
+  { id: '35', name: 'بومرداس - Boumerdès', homePrice: 500, officePrice: 350 },
+  { id: '36', name: 'الطارف - El Tarf', homePrice: 650, officePrice: 450 },
+  { id: '37', name: 'تندوف - Tindouf', homePrice: 1600, officePrice: 1100 },
+  { id: '38', name: 'تيسمسيلت - Tissemsilt', homePrice: 650, officePrice: 450 },
+  { id: '39', name: 'الوادي - El Oued', homePrice: 800, officePrice: 550 },
+  { id: '40', name: 'خنشلة - Khenchela', homePrice: 700, officePrice: 500 },
+  { id: '41', name: 'سوق أهراس - Souk Ahras', homePrice: 650, officePrice: 450 },
+  { id: '42', name: 'تيبازة - Tipaza', homePrice: 500, officePrice: 350 },
+  { id: '43', name: 'ميلة - Mila', homePrice: 600, officePrice: 450 },
+  { id: '44', name: 'عين الدفلى - Aïn Defla', homePrice: 550, officePrice: 400 },
+  { id: '45', name: 'النعامة - Naâma', homePrice: 850, officePrice: 600 },
+  { id: '46', name: 'عين تموشنت - Aïn Témouchent', homePrice: 600, officePrice: 450 },
+  { id: '47', name: 'غرداية - Ghardaïa', homePrice: 800, officePrice: 550 },
+  { id: '48', name: 'غليزان - Relizane', homePrice: 600, officePrice: 450 },
+  { id: '49', name: 'تيميمون - Timimoun', homePrice: 1100, officePrice: 750 },
+  { id: '50', name: 'برج باجي مختار - Bordj Badji Mokhtar', homePrice: 1700, officePrice: 1200 },
+  { id: '51', name: 'أولاد جلال - Ouled Djellal', homePrice: 750, officePrice: 550 },
+  { id: '52', name: 'بني عباس - Béni Abbès', homePrice: 1200, officePrice: 800 },
+  { id: '53', name: 'إن صالح - In Salah', homePrice: 1400, officePrice: 950 },
+  { id: '54', name: 'إن قزام - In Guezzam', homePrice: 1800, officePrice: 1250 },
+  { id: '55', name: 'تقرت - Touggourt', homePrice: 800, officePrice: 550 },
+  { id: '56', name: 'جانت - Djanet', homePrice: 1500, officePrice: 1050 },
+  { id: '57', name: 'المغير - El M\'Ghair', homePrice: 800, officePrice: 550 },
+  { id: '58', name: 'المنيعة - El Meniaa', homePrice: 1000, officePrice: 700 }
+];
+
+export const SERVER_PRODUCTS = [
+  {
+    id: 'noor',
+    name: 'عباية نُور',
+    price: 6900,
+    image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?auto=format&fit=crop&w=800&q=80',
+    category: 'abayas',
+    colors: ['أسود ليلي', 'بيج رملي', 'أخضر زيتوني'],
+    sizes: ['S', 'M', 'L', 'XL'],
+    tag: 'جديد',
+    tagStyle: 'orange'
+  },
+  {
+    id: 'sama',
+    name: 'طقم سَما',
+    price: 7400,
+    image: 'https://images.unsplash.com/photo-1596783074918-c84cb06531ca?auto=format&fit=crop&w=800&q=80',
+    category: 'sets',
+    colors: ['بيج رملي', 'أسود', 'كحلي'],
+    sizes: ['S', 'M', 'L']
+  },
+  {
+    id: 'lina',
+    name: 'فستان لِين',
+    price: 5800,
+    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80',
+    category: 'dresses',
+    colors: ['بني موكا', 'عنابي', 'رمادي'],
+    sizes: ['S', 'M', 'L', 'XL'],
+    tag: 'الأكثر طلباً',
+    tagStyle: 'soft'
+  },
+  {
+    id: 'mada',
+    name: 'جاكيت مَدى',
+    price: 6200,
+    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80',
+    category: 'sets',
+    colors: ['رمادي دخاني', 'أسود'],
+    sizes: ['S', 'M', 'L']
+  }
+];
