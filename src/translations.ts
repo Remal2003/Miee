@@ -94,8 +94,6 @@ export interface Translations {
     features: string[];
     galleryHint: string;
     detailsTitle: string;
-    sizeGuide: string;
-    sizeGuideTitle: string;
     close: string;
   };
   cart: {
@@ -253,8 +251,6 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       ],
       galleryHint: 'انقري على أي صورة لتكبيرها واستعراض التفاصيل',
       detailsTitle: 'تفاصيل الموديل والجودة',
-      sizeGuide: 'دليل المقاسات',
-      sizeGuideTitle: 'جدول المقاسات التقريبي (سم)',
       close: 'إغلاق'
     },
     cart: {
@@ -414,8 +410,6 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       ],
       galleryHint: 'Click any image to view in high resolution',
       detailsTitle: 'Piece Details & Craftsmanship',
-      sizeGuide: 'Size Guide',
-      sizeGuideTitle: 'Approximate Size Guide (cm)',
       close: 'Close'
     },
     cart: {
@@ -575,8 +569,6 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       ],
       galleryHint: 'Cliquez sur une photo pour l’agrandir en haute résolution',
       detailsTitle: 'Détails de la pièce & Confection',
-      sizeGuide: 'Guide des tailles',
-      sizeGuideTitle: 'Guide des tailles approximatif (cm)',
       close: 'Fermer'
     },
     cart: {

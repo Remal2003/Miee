@@ -22,7 +22,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
-  const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
   // Collect main image and all additional images added by admin
@@ -49,7 +48,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setSelectedSize(product.sizes?.[0] || 'M');
       setSelectedColor(product.colors?.[0] || '');
       setQuantity(1);
-      setShowSizeGuide(false);
       setIsAdding(false);
     }
   }, [product, isOpen]);
@@ -69,17 +67,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Handle ESC key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (showSizeGuide) {
-          setShowSizeGuide(false);
-        } else if (isOpen) {
-          onClose();
-        }
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, showSizeGuide, onClose]);
+  }, [isOpen, onClose]);
 
   if (!product) return null;
 
@@ -321,23 +315,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           {t.productModal.selectSize}{' '}
                           <span className="text-orange font-bold font-latin">{selectedSize}</span>
                         </label>
-
-                        {/* Size Guide Trigger */}
-                        <button
-                          type="button"
-                          onClick={() => setShowSizeGuide(!showSizeGuide)}
-                          className="text-[11px] text-ink/70 hover:text-orange underline underline-offset-2 flex items-center gap-1 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                            />
-                          </svg>
-                          <span>{t.productModal.sizeGuide}</span>
-                        </button>
                       </div>
 
                       {/* Sizes Buttons */}
@@ -360,52 +337,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           );
                         })}
                       </div>
-
-                      {/* Expandable Size Guide Table */}
-                      <AnimatePresence>
-                        {showSizeGuide && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="mt-3 p-3 bg-white rounded-xl border border-ink/10 overflow-hidden text-[11px]"
-                          >
-                            <h4 className="font-semibold text-ink mb-1.5">{t.productModal.sizeGuideTitle}</h4>
-                            <div className="grid grid-cols-4 gap-1 text-center border-b border-ink/10 pb-1 font-bold text-neutral-500">
-                              <span>المقاس</span>
-                              <span>الصدر</span>
-                              <span>الخصر</span>
-                              <span>الطول</span>
-                            </div>
-                            <div className="divide-y divide-ink/5 pt-1">
-                              <div className="grid grid-cols-4 gap-1 text-center py-1 font-latin text-neutral-700">
-                                <span className="font-bold">S</span>
-                                <span>90-94</span>
-                                <span>70-74</span>
-                                <span>140</span>
-                              </div>
-                              <div className="grid grid-cols-4 gap-1 text-center py-1 font-latin text-neutral-700">
-                                <span className="font-bold">M</span>
-                                <span>96-100</span>
-                                <span>76-80</span>
-                                <span>142</span>
-                              </div>
-                              <div className="grid grid-cols-4 gap-1 text-center py-1 font-latin text-neutral-700">
-                                <span className="font-bold">L</span>
-                                <span>102-106</span>
-                                <span>82-86</span>
-                                <span>144</span>
-                              </div>
-                              <div className="grid grid-cols-4 gap-1 text-center py-1 font-latin text-neutral-700">
-                                <span className="font-bold">XL</span>
-                                <span>108-114</span>
-                                <span>88-94</span>
-                                <span>145</span>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
                     </div>
 
                     {/* COLOR SELECTOR */}

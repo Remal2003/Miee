@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 interface AdminSizeSelectorCardProps {
   value: string;
@@ -7,14 +6,7 @@ interface AdminSizeSelectorCardProps {
   language: 'ar' | 'en' | 'fr';
 }
 
-const COMMON_PRESETS = [
-  { size: 'S', numeric: '38', bust: '90-94', waist: '70-74', length: '140' },
-  { size: 'M', numeric: '40', bust: '96-100', waist: '76-80', length: '142' },
-  { size: 'L', numeric: '42', bust: '102-106', waist: '82-86', length: '144' },
-  { size: 'XL', numeric: '44', bust: '108-114', waist: '88-94', length: '145' },
-  { size: 'XXL', numeric: '46', bust: '116-122', waist: '96-102', length: '145' }
-];
-
+const COMMON_PRESETS = ['S', 'M', 'L', 'XL', 'XXL'];
 const NUMERIC_PRESETS = ['38', '40', '42', '44', '46'];
 
 export const AdminSizeSelectorCard: React.FC<AdminSizeSelectorCardProps> = ({
@@ -22,7 +14,6 @@ export const AdminSizeSelectorCard: React.FC<AdminSizeSelectorCardProps> = ({
   onChange,
   language
 }) => {
-  const [showTable, setShowTable] = useState(false);
   const [customInput, setCustomInput] = useState('');
 
   // Parse current sizes array from comma-separated string
@@ -107,13 +98,13 @@ export const AdminSizeSelectorCard: React.FC<AdminSizeSelectorCardProps> = ({
           {language === 'ar' ? 'المقاسات المتاحة للاختيار السريع:' : 'Quick Select Sizes:'}
         </label>
         <div className="flex flex-wrap gap-2 sm:gap-2.5">
-          {COMMON_PRESETS.map((p) => {
-            const isSelected = currentSizes.includes(p.size);
+          {COMMON_PRESETS.map((size) => {
+            const isSelected = currentSizes.includes(size);
             return (
               <button
-                key={p.size}
+                key={size}
                 type="button"
-                onClick={() => toggleSize(p.size)}
+                onClick={() => toggleSize(size)}
                 className={`min-w-[46px] h-10 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   isSelected
                     ? 'bg-neutral-900 text-white border border-neutral-900 shadow-xs font-latin'
@@ -121,7 +112,7 @@ export const AdminSizeSelectorCard: React.FC<AdminSizeSelectorCardProps> = ({
                 }`}
               >
                 {isSelected && <span className="text-orange-400 text-xs">✓</span>}
-                <span>{p.size}</span>
+                <span>{size}</span>
               </button>
             );
           })}
@@ -220,87 +211,6 @@ export const AdminSizeSelectorCard: React.FC<AdminSizeSelectorCardProps> = ({
             {language === 'ar' ? '+ إضافة' : '+ Add'}
           </button>
         </div>
-      </div>
-
-      {/* THE SIZE GUIDE REFERENCE TABLE CARD */}
-      <div className="border border-neutral-200/80 rounded-2xl bg-white overflow-hidden shadow-xs">
-        <button
-          type="button"
-          onClick={() => setShowTable(!showTable)}
-          className="w-full px-4 py-3 bg-neutral-50/60 hover:bg-neutral-100/70 flex items-center justify-between text-neutral-900 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-orange-600 text-sm font-bold">📐</span>
-            <span className="font-bold text-xs">
-              {language === 'ar'
-                ? 'بطاقة جدول القياسات المعيارية بالسنتيمتر (دليل تفصيلي)'
-                : 'Standard Size Guide Card (cm)'}
-            </span>
-          </div>
-          <span className="text-neutral-400 text-xs font-mono">{showTable ? '▲ إخفاء' : '▼ إظهار'}</span>
-        </button>
-
-        <AnimatePresence>
-          {showTable && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="p-4 overflow-x-auto"
-            >
-              <table className="w-full text-center text-xs min-w-[500px]">
-                <thead>
-                  <tr className="border-b border-neutral-200/80 text-neutral-500 font-bold bg-neutral-50">
-                    <th className="py-2.5 px-3 text-start">المقاس (Size)</th>
-                    <th className="py-2.5 px-3">الرقمي</th>
-                    <th className="py-2.5 px-3">محيط الصدر</th>
-                    <th className="py-2.5 px-3">محيط الخصر</th>
-                    <th className="py-2.5 px-3">الطول التقريبي</th>
-                    <th className="py-2.5 px-3 text-end">الحالة / الإضافة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {COMMON_PRESETS.map((row) => {
-                    const isSelected = currentSizes.includes(row.size);
-                    return (
-                      <tr
-                        key={row.size}
-                        onClick={() => toggleSize(row.size)}
-                        className={`hover:bg-neutral-50 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-orange-50/40 font-medium' : ''
-                        }`}
-                      >
-                        <td className="py-2.5 px-3 text-start font-bold font-latin text-neutral-900">
-                          {row.size}
-                        </td>
-                        <td className="py-2.5 px-3 font-latin text-neutral-600">{row.numeric}</td>
-                        <td className="py-2.5 px-3 font-latin text-neutral-700">{row.bust} سم</td>
-                        <td className="py-2.5 px-3 font-latin text-neutral-700">{row.waist} سم</td>
-                        <td className="py-2.5 px-3 font-latin text-neutral-700">{row.length} سم</td>
-                        <td className="py-2.5 px-3 text-end">
-                          <span
-                            className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold ${
-                              isSelected
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-900 hover:text-white'
-                            }`}
-                          >
-                            {isSelected ? '✓ مضاف' : '+ اختر'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              <div className="mt-3 pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-400">
-                <span>💡 يمكنك النقر مباشرة على أي صف في الجدول لإضافة المقاس إلى المنتج فوراً.</span>
-                <span className="font-latin">Unit: cm</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* STOREFRONT PREVIEW: How customers see it */}
