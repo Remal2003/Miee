@@ -852,3 +852,99 @@ export async function saveSubscriberToFirebase(email: string) {
     console.warn("[Firebase] Subscriber save note:", error);
   }
 }
+
+// -------------------------------------------------------------
+// Store Banners & Hero Visuals Management
+// -------------------------------------------------------------
+
+export interface StoreBanners {
+  heroImages: string[];
+  philosophyImage: string;
+}
+
+export const DEFAULT_STORE_BANNERS: StoreBanners = {
+  heroImages: [
+    "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
+  ],
+  philosophyImage: "https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=1300&q=85"
+};
+
+const BANNERS_STORAGE_KEY = "miee_store_banners";
+
+export function getLocalBanners(): StoreBanners {
+  try {
+    const raw = localStorage.getItem(BANNERS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const heroImages = Array.isArray(parsed?.heroImages) && parsed.heroImages.length > 0
+        ? parsed.heroImages
+        : (parsed?.heroImage ? [parsed.heroImage] : DEFAULT_STORE_BANNERS.heroImages);
+      return {
+        heroImages,
+        philosophyImage: parsed?.philosophyImage || DEFAULT_STORE_BANNERS.philosophyImage
+      };
+    }
+  } catch (e) {
+    console.warn("Error reading local banners:", e);
+  }
+  return DEFAULT_STORE_BANNERS;
+}
+
+export function saveLocalBanners(banners: StoreBanners) {
+  try {
+    localStorage.setItem(BANNERS_STORAGE_KEY, JSON.stringify(banners));
+    window.dispatchEvent(new Event("miee_banners_updated"));
+  } catch (e) {
+    console.warn("Error saving local banners:", e);
+  }
+}
+
+export function subscribeToBanners(callback: (banners: StoreBanners) => void) {
+  const emit = () => callback(getLocalBanners());
+  emit();
+
+  const handleUpdate = () => emit();
+  window.addEventListener("miee_banners_updated", handleUpdate);
+  window.addEventListener("storage", handleUpdate);
+
+  let unsub = () => {};
+  try {
+    const docRef = doc(db, "settings", "banners");
+    unsub = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const heroList = Array.isArray(data?.heroImages) && data.heroImages.length > 0
+          ? data.heroImages
+          : (data?.heroImage ? [data.heroImage] : DEFAULT_STORE_BANNERS.heroImages);
+        const banners: StoreBanners = {
+          heroImages: heroList,
+          philosophyImage: data?.philosophyImage || DEFAULT_STORE_BANNERS.philosophyImage
+        };
+        saveLocalBanners(banners);
+        callback(banners);
+      }
+    });
+  } catch (e) {
+    console.warn("Error subscribing to Firestore banners:", e);
+  }
+
+  return () => {
+    window.removeEventListener("miee_banners_updated", handleUpdate);
+    window.removeEventListener("storage", handleUpdate);
+    unsub();
+  };
+}
+
+export async function saveBannersToFirebase(banners: StoreBanners) {
+  saveLocalBanners(banners);
+  try {
+    await setDoc(doc(db, "settings", "banners"), {
+      heroImages: banners.heroImages,
+      heroImage: banners.heroImages[0] || "",
+      philosophyImage: banners.philosophyImage,
+      updatedAt: serverTimestamp()
+    });
+  } catch (e) {
+    console.warn("Firestore banners save note:", e);
+  }
+}

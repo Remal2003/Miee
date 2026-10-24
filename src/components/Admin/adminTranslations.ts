@@ -21,6 +21,7 @@ export interface AdminTranslations {
     orders: string;
     products: string;
     shipping: string;
+    banners: string;
     newBadge: string;
   };
   metrics: {
@@ -132,6 +133,7 @@ export const ADMIN_TRANSLATIONS: Record<Language, AdminTranslations> = {
       orders: '📦 الطلبيات الواردة',
       products: '👗 إدارة الملابس والكتالوج',
       shipping: '🚚 التحكم في أسعار الشحن (58 ولاية)',
+      banners: '🖼️ صور الواجهة والهيرو',
       newBadge: 'جديد'
     },
     metrics: {
@@ -241,6 +243,7 @@ export const ADMIN_TRANSLATIONS: Record<Language, AdminTranslations> = {
       orders: '📦 Incoming Orders',
       products: '👗 Products & Catalog',
       shipping: '🚚 Shipping Rates (58 Wilayas)',
+      banners: '🖼️ Storefront Visuals & Hero',
       newBadge: 'NEW'
     },
     metrics: {
@@ -350,6 +353,7 @@ export const ADMIN_TRANSLATIONS: Record<Language, AdminTranslations> = {
       orders: '📦 Commandes reçues',
       products: '👗 Vêtements & Catalogue',
       shipping: '🚚 Frais de livraison (58 Wilayas)',
+      banners: '🖼️ Visuels & Bannières Vitrine',
       newBadge: 'NOUVEAU'
     },
     metrics: {

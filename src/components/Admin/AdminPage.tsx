@@ -14,6 +14,9 @@ import {
   logoutFromFirebase,
   onAuthChange,
   uploadProductImage,
+  subscribeToBanners,
+  saveBannersToFirebase,
+  DEFAULT_STORE_BANNERS,
   FirebaseOrder
 } from '../../firebase';
 import { Product, Wilaya } from '../../types';
@@ -67,13 +70,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
   }, []);
 
   // Active Tab - Persistent across page reloads & URL sync
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'shipping'>(() => {
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'shipping' | 'banners'>(() => {
     const hash = window.location.hash || '';
     if (hash.includes('products')) return 'products';
     if (hash.includes('shipping')) return 'shipping';
+    if (hash.includes('banners')) return 'banners';
     if (hash.includes('orders')) return 'orders';
     const saved = localStorage.getItem('miee_admin_tab');
-    if (saved === 'products' || saved === 'shipping' || saved === 'orders') {
+    if (saved === 'products' || saved === 'shipping' || saved === 'banners' || saved === 'orders') {
       return saved;
     }
     return 'orders';
@@ -98,6 +102,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
         setActiveTab('products');
       } else if (hash.includes('shipping')) {
         setActiveTab('shipping');
+      } else if (hash.includes('banners')) {
+        setActiveTab('banners');
       } else if (hash.includes('orders')) {
         setActiveTab('orders');
       }
@@ -160,6 +166,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
   const [isSavingShipping, setIsSavingShipping] = useState(false);
   const [shippingSuccessMsg, setShippingSuccessMsg] = useState('');
 
+  // Store Banners & Hero Visuals Management State
+  const [heroImagesInput, setHeroImagesInput] = useState<string>('');
+  const [philosophyImageInput, setPhilosophyImageInput] = useState<string>('');
+  const [isSavingBanners, setIsSavingBanners] = useState(false);
+  const [bannersSuccessMsg, setBannersSuccessMsg] = useState('');
+  const [isUploadingHeroBanner, setIsUploadingHeroBanner] = useState(false);
+  const [heroBannerUploadProgress, setHeroBannerUploadProgress] = useState('');
+  const [isUploadingPhilosophyBanner, setIsUploadingPhilosophyBanner] = useState(false);
+  const heroBannerFileRef = useRef<HTMLInputElement>(null);
+  const philosophyBannerFileRef = useRef<HTMLInputElement>(null);
+
   // Luxury Haute Couture Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -221,6 +238,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
       setProducts(liveProducts);
     });
 
+    const unsubBanners = subscribeToBanners((liveBanners) => {
+      setHeroImagesInput(liveBanners.heroImages?.join('\n') || DEFAULT_STORE_BANNERS.heroImages.join('\n'));
+      setPhilosophyImageInput(liveBanners.philosophyImage || DEFAULT_STORE_BANNERS.philosophyImage);
+    });
+
     const unsubWilayas = subscribeToWilayas((liveWilayas) => {
       setWilayas(liveWilayas);
     });
@@ -229,6 +251,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
       if (typeof unsubOrders === 'function') unsubOrders();
       if (typeof unsubProducts === 'function') unsubProducts();
       if (typeof unsubWilayas === 'function') unsubWilayas();
+      if (typeof unsubBanners === 'function') unsubBanners();
     };
   }, [isAuthenticated]);
 
@@ -736,6 +759,117 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
       setIsSavingShipping(false);
       setTimeout(() => setShippingSuccessMsg(''), 4000);
     }
+  };
+
+  // -------------------------------------------------------------
+  // Store Banners & Section Visuals Handlers
+  // -------------------------------------------------------------
+
+  const handleSaveBanners = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingBanners(true);
+    try {
+      const heroList = heroImagesInput
+        .split(/\r?\n/)
+        .map((u) => u.trim())
+        .filter((u) => u.length > 5);
+
+      const finalHero = heroList.length > 0 ? heroList : DEFAULT_STORE_BANNERS.heroImages;
+      const finalPhilosophy = philosophyImageInput.trim() || DEFAULT_STORE_BANNERS.philosophyImage;
+
+      await saveBannersToFirebase({
+        heroImages: finalHero,
+        philosophyImage: finalPhilosophy
+      });
+
+      setBannersSuccessMsg(
+        language === 'ar'
+          ? 'تم حفظ وتحديث صور الواجهة والهيرو وقسم الفلسفة بنجاح!'
+          : language === 'fr'
+          ? 'Visuels et bannières mis à jour avec succès !'
+          : 'Storefront visuals and philosophy image saved successfully!'
+      );
+    } catch (err) {
+      console.error('Error saving banners:', err);
+      alert('Error saving banners to Firebase.');
+    } finally {
+      setIsSavingBanners(false);
+      setTimeout(() => setBannersSuccessMsg(''), 4000);
+    }
+  };
+
+  const handleResetBanners = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: language === 'ar' ? 'استعادة الصور الافتراضية للواجهة؟' : 'Restaurer les visuels par défaut ?',
+      subtitle: language === 'ar' ? 'إعادة ضبط صور المتجر' : 'Vitrine Miee',
+      message: language === 'ar'
+        ? 'هل تريد استعادة صور الهيرو وقسم الفلسفة الافتراضية الأصلية؟'
+        : 'Do you want to reset Hero and Philosophy visuals to their original default photos?',
+      confirmText: language === 'ar' ? 'نعم، استعادة الافتراضي' : 'Restaurer',
+      isDangerous: false,
+      onConfirm: async () => {
+        await saveBannersToFirebase(DEFAULT_STORE_BANNERS);
+        setHeroImagesInput(DEFAULT_STORE_BANNERS.heroImages.join('\n'));
+        setPhilosophyImageInput(DEFAULT_STORE_BANNERS.philosophyImage);
+        setBannersSuccessMsg(
+          language === 'ar' ? 'تمت استعادة الصور الافتراضية بنجاح!' : 'Default visuals restored!'
+        );
+        setTimeout(() => setBannersSuccessMsg(''), 4000);
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleHeroBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploadingHeroBanner(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        setHeroBannerUploadProgress(
+          language === 'ar'
+            ? `جاري رفع الصورة ${i + 1} من ${files.length}...`
+            : `Uploading ${i + 1}/${files.length}...`
+        );
+        const url = await uploadProductImage(files[i]);
+        uploadedUrls.push(url);
+      }
+      const existing = heroImagesInput.trim();
+      const newStr = uploadedUrls.join('\n');
+      setHeroImagesInput(existing ? `${existing}\n${newStr}` : newStr);
+    } catch (err) {
+      console.error('Error uploading hero banner:', err);
+    } finally {
+      setIsUploadingHeroBanner(false);
+      setHeroBannerUploadProgress('');
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handlePhilosophyBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingPhilosophyBanner(true);
+    try {
+      const url = await uploadProductImage(file);
+      setPhilosophyImageInput(url);
+    } catch (err) {
+      console.error('Error uploading philosophy banner:', err);
+    } finally {
+      setIsUploadingPhilosophyBanner(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleRemoveHeroBannerImage = (indexToRemove: number) => {
+    const urls = heroImagesInput
+      .split(/\r?\n/)
+      .map((u) => u.trim())
+      .filter((u) => u.length > 5);
+    urls.splice(indexToRemove, 1);
+    setHeroImagesInput(urls.join('\n'));
   };
 
   // Filtered Orders (Never hide any real orders)
@@ -1578,6 +1712,21 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
             <span className={`font-latin text-[11px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'shipping' ? 'bg-neutral-100 text-neutral-900' : 'bg-black/5 text-neutral-600'}`}>
               58
             </span>
+          </button>
+
+          {/* Tab 4: Store Visuals & Banners */}
+          <button
+            onClick={() => setActiveTab('banners')}
+            className={`flex-1 min-w-[180px] py-3 px-5 flex items-center justify-center gap-2.5 transition-all rounded-xl cursor-pointer ${
+              activeTab === 'banners'
+                ? 'bg-white text-neutral-900 font-bold shadow-sm border border-black/5'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>{at.tabs.banners}</span>
           </button>
         </div>
 
@@ -3265,6 +3414,365 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB 4: STORE VISUALS & BANNERS (HERO & PHILOSOPHY) */}
+        {/* ======================================================== */}
+        {activeTab === 'banners' && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Header & Quick Action Card */}
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-neutral-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 text-purple-800 rounded-full text-xs font-semibold mb-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                  <span>{language === 'ar' ? 'استوديو واجهة المتجر' : 'Storefront Visual Studio'}</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 tracking-tight font-arabic">
+                  {language === 'ar' ? 'تخصيص صور الهيرو وقسم الفلسفة' : 'Hero & Philosophy Visuals'}
+                </h2>
+                <p className="text-xs sm:text-[13px] text-neutral-500 max-w-2xl mt-1 leading-relaxed font-arabic">
+                  {language === 'ar'
+                    ? 'تحكّم كامل في الصور الكبيرة لواجهة متجر Miee. يمكنك رفع صور عالية الدقة مباشرة من هاتفك أو تعديل الروابط مع حفظ سحابي فوري يظهر لجميع الزوار.'
+                    : 'Manage top Hero banner visual slides and the Our Philosophy section image with real-time cloud sync.'}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <button
+                  type="button"
+                  onClick={handleResetBanners}
+                  className="px-4 py-2.5 text-xs font-semibold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-all cursor-pointer border border-neutral-200"
+                >
+                  {language === 'ar' ? '↺ استعادة الصور الافتراضية' : 'Reset Defaults'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveBanners()}
+                  disabled={isSavingBanners}
+                  className="flex-1 md:flex-initial px-6 py-2.5 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingBanners ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>{language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>{language === 'ar' ? '💾 حفظ وتحديث المتجر' : 'Save Changes'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Success alert message */}
+            {bannersSuccessMsg && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center gap-2 shadow-2xs"
+              >
+                <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{bannersSuccessMsg}</span>
+              </motion.div>
+            )}
+
+            {/* TWO MAIN VISUAL CARDS GRID */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+              {/* CARD 1: HERO SECTION IMAGES */}
+              <div className="bg-white p-6 sm:p-7 rounded-3xl border border-neutral-200/80 shadow-xs flex flex-col justify-between space-y-5">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-orange/10 flex items-center justify-center text-orange font-bold text-xs font-latin">
+                        01
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-neutral-900 font-arabic">
+                          {language === 'ar' ? 'صور قسم الهيرو (أعلى الواجهة الرئيسية)' : 'Hero Section Visuals'}
+                        </h3>
+                        <p className="text-[11px] text-neutral-400 font-arabic">
+                          {language === 'ar' ? 'الصور الكبيرة بجانب شعار Closet Miee' : 'Large banner visual on homepage top'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Upload from phone button */}
+                  <div>
+                    <input
+                      ref={heroBannerFileRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleHeroBannerUpload}
+                    />
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => heroBannerFileRef.current?.click()}
+                        disabled={isUploadingHeroBanner}
+                        className="inline-flex items-center gap-2 px-3.5 py-2 bg-neutral-900 hover:bg-black text-white rounded-xl text-xs font-medium active:scale-95 transition-all disabled:opacity-60 cursor-pointer shadow-2xs"
+                      >
+                        {isUploadingHeroBanner ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>{heroBannerUploadProgress || (language === 'ar' ? 'جاري ضغط ورفع صور الهيرو...' : 'Uploading...')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>{language === 'ar' ? '📷 رفع صور من الهاتف / الكاميرا' : '📷 Upload from phone / camera'}</span>
+                          </>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-neutral-400">
+                        {language === 'ar' ? '(تحديد صورة واحدة أو عدة صور للتناوب التلقائي)' : '(single or multiple images)'}
+                      </span>
+                    </div>
+
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                      {language === 'ar' ? 'روابط صور الهيرو (رابط في كل سطر):' : 'Hero Image URLs (one per line):'}
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={heroImagesInput}
+                      onChange={(e) => setHeroImagesInput(e.target.value)}
+                      placeholder="https://images.unsplash.com/..."
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-latin outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 transition-all"
+                    />
+                  </div>
+
+                  {/* Hero Images Gallery Thumbnails */}
+                  {(() => {
+                    const urls = heroImagesInput
+                      .split(/\r?\n/)
+                      .map((u) => u.trim())
+                      .filter((u) => u.length > 5);
+                    if (urls.length === 0) return null;
+                    return (
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-neutral-600">
+                          <span>{language === 'ar' ? 'الصور الحالية المعتمدة للهيرو:' : 'Current Hero Slides:'}</span>
+                          <span className="font-latin text-orange font-bold">({urls.length})</span>
+                        </div>
+                        <div className="flex items-center gap-2.5 overflow-x-auto py-1">
+                          {urls.map((url, idx) => (
+                            <div
+                              key={idx}
+                              className="relative aspect-[4/3] w-24 shrink-0 rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100 shadow-2xs group"
+                            >
+                              <img
+                                src={url}
+                                alt={`Hero slide ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.opacity = '0.35';
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveHeroBannerImage(idx)}
+                                title={language === 'ar' ? 'حذف هذه الصورة من الهيرو' : 'Remove image'}
+                                className="absolute top-1 left-1 w-4 h-4 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs active:scale-90 transition-all cursor-pointer"
+                              >
+                                ×
+                              </button>
+                              <span className="absolute bottom-1 right-1 bg-neutral-900/85 text-white text-[8px] px-1.5 py-0.5 rounded font-latin font-bold">
+                                #{idx + 1}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Live Hero Lookbook Mockup */}
+                  {(() => {
+                    const firstUrl = heroImagesInput.split(/\r?\n/).map((u) => u.trim()).find((u) => u.length > 5);
+                    if (!firstUrl) return null;
+                    return (
+                      <div className="space-y-1.5 pt-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block font-latin">
+                          Live Hero Mockup Preview
+                        </span>
+                        <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden border border-neutral-200 bg-neutral-100 shadow-xs">
+                          <img
+                            src={firstUrl}
+                            alt="Hero preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/10" />
+                          <span
+                            className="absolute top-3 right-3 text-white font-latin text-[8px] tracking-[0.25em] uppercase opacity-90"
+                            style={{ writingMode: 'vertical-rl' }}
+                          >
+                            M I E E
+                          </span>
+                          <div className="absolute left-3 bottom-3 w-12 h-12 border border-white/90 rounded-full flex flex-col items-center justify-center text-white text-[7px] font-latin font-bold rotate-[-12deg] backdrop-blur-xs">
+                            <span>MADE</span>
+                            <span>FOR YOU</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* CARD 2: PHILOSOPHY SECTION IMAGE */}
+              <div className="bg-white p-6 sm:p-7 rounded-3xl border border-neutral-200/80 shadow-xs flex flex-col justify-between space-y-5">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-700 font-bold text-xs font-latin">
+                        02
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-neutral-900 font-arabic">
+                          {language === 'ar' ? 'صورة قسم الفلسفة (OUR PHILOSOPHY)' : 'Our Philosophy Section Visual'}
+                        </h3>
+                        <p className="text-[11px] text-neutral-400 font-arabic">
+                          {language === 'ar' ? '«We design for the woman who knows presence needs no noise»' : 'Image alongside philosophy manifesto'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Upload from phone button */}
+                  <div>
+                    <input
+                      ref={philosophyBannerFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhilosophyBannerUpload}
+                    />
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => philosophyBannerFileRef.current?.click()}
+                        disabled={isUploadingPhilosophyBanner}
+                        className="inline-flex items-center gap-2 px-3.5 py-2 bg-neutral-900 hover:bg-black text-white rounded-xl text-xs font-medium active:scale-95 transition-all disabled:opacity-60 cursor-pointer shadow-2xs"
+                      >
+                        {isUploadingPhilosophyBanner ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>{language === 'ar' ? 'جاري ضغط ورفع صورة الفلسفة...' : 'Uploading...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>{language === 'ar' ? '📷 رفع صورة من الهاتف / الكاميرا' : '📷 Upload from phone / camera'}</span>
+                          </>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-neutral-400">
+                        {language === 'ar' ? 'ضغط ذكي تلقائي بأعلى جودة' : 'Smart compression'}
+                      </span>
+                    </div>
+
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                      {language === 'ar' ? 'رابط صورة قسم الفلسفة:' : 'Philosophy Image URL:'}
+                    </label>
+                    <input
+                      type="url"
+                      value={philosophyImageInput}
+                      onChange={(e) => setPhilosophyImageInput(e.target.value)}
+                      placeholder="https://images.unsplash.com/..."
+                      className="w-full h-11 px-4 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-latin outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 transition-all"
+                    />
+                  </div>
+
+                  {/* Live Philosophy Mockup Preview */}
+                  {philosophyImageInput && (
+                    <div className="space-y-1.5 pt-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block font-latin">
+                        Live Philosophy Mockup Preview
+                      </span>
+                      <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden border border-neutral-200 bg-[#343e30] shadow-xs flex">
+                        {/* Image Half */}
+                        <div className="w-1/2 h-full relative overflow-hidden">
+                          <img
+                            src={philosophyImageInput}
+                            alt="Philosophy preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        {/* Copy Mock Half */}
+                        <div className="w-1/2 h-full p-4 flex flex-col justify-center text-[#faf8f4] text-right" dir="rtl">
+                          <span className="text-[8px] font-semibold text-[#d3d8c9] uppercase tracking-wider mb-1">
+                            {language === 'ar' ? 'فلسفتنا' : 'OUR PHILOSOPHY'}
+                          </span>
+                          <p className="text-[10px] font-medium leading-snug line-clamp-2 text-white">
+                            We design for the woman who knows presence needs no noise.
+                          </p>
+                          <div className="mt-2 pt-2 border-t border-white/20 flex gap-2 text-[7px] text-[#e4e7df]">
+                            <span>01 الجودة</span>
+                            <span>02 الأناقة</span>
+                            <span>03 البساطة</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom Sticky-style Action Bar */}
+            <div className="p-4 bg-neutral-50 border border-neutral-200/80 rounded-2xl flex items-center justify-between gap-4">
+              <span className="text-xs text-neutral-500 font-arabic">
+                {language === 'ar'
+                  ? '💡 بمجرد الضغط على «حفظ وتحديث المتجر»، ستتغير الصور فوراً لدى جميع الزبائن في المتجر دون الحاجة لإعادة نشر الموقع.'
+                  : 'Changes take effect immediately for all storefront visitors upon saving.'}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleSaveBanners()}
+                disabled={isSavingBanners}
+                className="px-6 py-2.5 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {isSavingBanners ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>{language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{language === 'ar' ? '💾 حفظ وتحديث المتجر الآن' : 'Save Changes'}</span>
+                  </>
+                )}
+              </button>
             </div>
           </motion.div>
         )}

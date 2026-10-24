@@ -1,9 +1,32 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../context/LanguageContext';
+import { subscribeToBanners, DEFAULT_STORE_BANNERS } from '../firebase';
 
 export const Hero: React.FC = () => {
   const { t } = useLanguage();
+  const [heroImages, setHeroImages] = useState<string[]>(DEFAULT_STORE_BANNERS.heroImages);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const unsub = subscribeToBanners((banners) => {
+      if (banners.heroImages && banners.heroImages.length > 0) {
+        setHeroImages(banners.heroImages);
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Smooth automatic rotation if more than 1 image is configured
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % heroImages.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [heroImages.length]);
+
+  const activeImage = heroImages[currentSlide % heroImages.length] || heroImages[0];
 
   return (
     <section className="relative min-h-[620px] md:min-h-[660px] grid grid-cols-1 lg:grid-cols-[45%_55%]">
@@ -42,25 +65,50 @@ export const Hero: React.FC = () => {
 
       {/* Right Visual Panel */}
       <div className="relative min-h-[440px] lg:min-h-full overflow-hidden bg-[#c9ad99]">
-        <div
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 hover:scale-105"
-          style={{
-            backgroundImage:
-              "linear-gradient(90deg, rgba(32,21,18,0.15), transparent), url('https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D')",
-            backgroundPosition: 'center center'
-          }}
-        />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeImage}
+            initial={{ opacity: 0.85 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0.85 }}
+            transition={{ duration: 0.7 }}
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 hover:scale-105"
+            style={{
+              backgroundImage: `linear-gradient(90deg, rgba(32,21,18,0.15), transparent), url('${activeImage}')`,
+              backgroundPosition: 'center center'
+            }}
+          />
+        </AnimatePresence>
+
+        {/* Slide Indicators if more than 1 image */}
+        {heroImages.length > 1 && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-neutral-900/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
+            {heroImages.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setCurrentSlide(idx)}
+                className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                  (currentSlide % heroImages.length) === idx
+                    ? 'w-6 bg-white shadow-xs'
+                    : 'w-1.5 bg-white/50 hover:bg-white/80'
+                }`}
+                aria-label={`Slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Vertical Branding Word */}
         <span
-          className="absolute top-10 right-8 text-white font-latin text-[10px] tracking-[0.35em] uppercase select-none opacity-90 hidden sm:block"
+          className="absolute top-10 right-8 text-white font-latin text-[10px] tracking-[0.35em] uppercase select-none opacity-90 hidden sm:block z-10"
           style={{ writingMode: 'vertical-rl' }}
         >
           M I E E / C L O S E T
         </span>
 
         {/* Round Stamp */}
-        <div className="absolute left-[8%] bottom-[9%] w-[105px] h-[105px] border border-white/90 rounded-full flex flex-col items-center justify-center text-white text-center font-latin text-[11px] leading-[1.25] tracking-wider rotate-[-14deg] backdrop-blur-[2px]">
+        <div className="absolute left-[8%] bottom-[9%] w-[105px] h-[105px] border border-white/90 rounded-full flex flex-col items-center justify-center text-white text-center font-latin text-[11px] leading-[1.25] tracking-wider rotate-[-14deg] backdrop-blur-[2px] z-10">
           <span className="text-[10px] font-medium">MADE</span>
           <span className="text-[10px] font-medium">FOR</span>
           <span className="text-[10px] font-medium">YOU</span>
@@ -68,9 +116,11 @@ export const Hero: React.FC = () => {
         </div>
 
         {/* Image Caption */}
-        <div className="absolute bottom-[7%] right-[8%] text-white font-latin text-[11px] tracking-wider select-none text-right">
+        <div className="absolute bottom-[7%] right-[8%] text-white font-latin text-[11px] tracking-wider select-none text-right z-10">
           <p className="opacity-90">less, but better</p>
-          <b className="font-normal text-[9px] opacity-75">01 / 05</b>
+          <b className="font-normal text-[9px] opacity-75">
+            {String((currentSlide % heroImages.length) + 1).padStart(2, '0')} / {String(heroImages.length).padStart(2, '0')}
+          </b>
         </div>
       </div>
     </section>

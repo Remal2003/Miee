@@ -1,17 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { subscribeToBanners, DEFAULT_STORE_BANNERS } from '../firebase';
 
 export const Manifesto: React.FC = () => {
   const { t } = useLanguage();
+  const [philosophyImage, setPhilosophyImage] = useState<string>(DEFAULT_STORE_BANNERS.philosophyImage);
+
+  useEffect(() => {
+    const unsub = subscribeToBanners((banners) => {
+      if (banners.philosophyImage) {
+        setPhilosophyImage(banners.philosophyImage);
+      }
+    });
+    return unsub;
+  }, []);
 
   return (
     <section id="about" className="grid grid-cols-1 lg:grid-cols-2 min-h-[580px]">
       {/* Photo Column */}
       <div
-        className="min-h-[400px] lg:min-h-full bg-cover bg-center"
+        className="min-h-[400px] lg:min-h-full bg-cover bg-center transition-all duration-700"
         style={{
-          backgroundImage:
-            "url('https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=1300&q=85')"
+          backgroundImage: `url('${philosophyImage}')`
         }}
       />
 
