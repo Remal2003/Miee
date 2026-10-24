@@ -674,19 +674,44 @@ export async function clearAllOrdersFromFirebase() {
 // -------------------------------------------------------------
 
 const PRODUCTS_STORAGE_KEY = "miee_custom_products";
+const DELETED_PRODUCTS_KEY = "miee_deleted_product_ids";
+
+function getDeletedProductIds(): Set<string> {
+  const set = new Set<string>(["mada"]); // 'mada' (جاكيت مدى) is permanently deleted
+  try {
+    const raw = localStorage.getItem(DELETED_PRODUCTS_KEY);
+    if (raw) {
+      const parsed: string[] = JSON.parse(raw);
+      parsed.forEach((id) => set.add(id));
+    }
+  } catch {}
+  return set;
+}
+
+function saveDeletedProductId(productId: string) {
+  try {
+    const set = getDeletedProductIds();
+    set.add(productId);
+    localStorage.setItem(DELETED_PRODUCTS_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
 
 function getLocalProducts(): Product[] {
+  const deleted = getDeletedProductIds();
   try {
     const raw = localStorage.getItem(PRODUCTS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : PRODUCTS;
+    const list: Product[] = raw ? JSON.parse(raw) : PRODUCTS;
+    return list.filter((p) => p && !deleted.has(p.id) && p.id !== "mada");
   } catch {
-    return PRODUCTS;
+    return PRODUCTS.filter((p) => p && !deleted.has(p.id) && p.id !== "mada");
   }
 }
 
 function saveLocalProducts(list: Product[]) {
   try {
-    localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(list));
+    const deleted = getDeletedProductIds();
+    const cleanList = list.filter((p) => p && !deleted.has(p.id) && p.id !== "mada");
+    localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(cleanList));
     window.dispatchEvent(new Event("miee_products_updated"));
   } catch (e) {
     console.warn("Error saving local products:", e);
@@ -695,23 +720,42 @@ function saveLocalProducts(list: Product[]) {
 
 export function subscribeToProducts(callback: (products: Product[]) => void) {
   let firestoreProducts: Product[] = [];
+  let deletedSet = getDeletedProductIds();
 
   const mergeAndEmit = () => {
     const local = getLocalProducts();
     const map = new Map<string, Product>();
-    local.forEach(p => map.set(p.id, p));
-    firestoreProducts.forEach(p => map.set(p.id, p));
+    local.forEach((p) => {
+      if (!deletedSet.has(p.id) && p.id !== "mada") map.set(p.id, p);
+    });
+    firestoreProducts.forEach((p) => {
+      if (!deletedSet.has(p.id) && p.id !== "mada") map.set(p.id, p);
+    });
     callback(Array.from(map.values()));
   };
 
   mergeAndEmit();
 
-  const handleUpdate = () => mergeAndEmit();
+  const handleUpdate = () => {
+    deletedSet = getDeletedProductIds();
+    mergeAndEmit();
+  };
   window.addEventListener("miee_products_updated", handleUpdate);
   window.addEventListener("storage", handleUpdate);
 
   let unsub = () => {};
   try {
+    // Listen to deleted products from Firestore settings
+    const delDocRef = doc(db, "settings", "deleted_products");
+    onSnapshot(delDocRef, (snap) => {
+      if (snap.exists() && Array.isArray(snap.data()?.ids)) {
+        const ids: string[] = snap.data()?.ids;
+        ids.forEach((id) => saveDeletedProductId(id));
+        deletedSet = getDeletedProductIds();
+        mergeAndEmit();
+      }
+    });
+
     const q = collection(db, "products");
     unsub = onSnapshot(
       q,
@@ -757,6 +801,15 @@ export function subscribeToProducts(callback: (products: Product[]) => void) {
 }
 
 export async function saveProductToFirebase(product: Product) {
+  // If editing/re-adding, remove from deleted if present
+  try {
+    const deleted = getDeletedProductIds();
+    if (deleted.has(product.id)) {
+      deleted.delete(product.id);
+      localStorage.setItem(DELETED_PRODUCTS_KEY, JSON.stringify(Array.from(deleted)));
+    }
+  } catch {}
+
   // Save local first
   const local = getLocalProducts();
   const updated = [product, ...local.filter(p => p.id !== product.id)];
@@ -787,11 +840,17 @@ export async function saveProductToFirebase(product: Product) {
 }
 
 export async function deleteProductFromFirebase(productId: string) {
+  saveDeletedProductId(productId);
   const local = getLocalProducts();
   saveLocalProducts(local.filter(p => p.id !== productId));
 
   try {
     await deleteDoc(doc(db, "products", productId));
+    const set = getDeletedProductIds();
+    await setDoc(doc(db, "settings", "deleted_products"), {
+      ids: Array.from(set),
+      updatedAt: serverTimestamp()
+    });
   } catch (e) {
     console.warn("Firestore product delete note:", e);
   }

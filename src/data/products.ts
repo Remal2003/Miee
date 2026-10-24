@@ -55,22 +55,5 @@ export const PRODUCTS: Product[] = [
     tag: 'الأكثر طلباً',
     tagStyle: 'soft',
     inStock: true
-  },
-  {
-    id: 'mada',
-    name: 'جاكيت مَدى',
-    price: 6200,
-    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=1200&q=80',
-    images: [
-      'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1544441893-675973e31985?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=1200&q=80'
-    ],
-    description: 'جاكيت بتصميم مينيمالي وأكتاف منسدلة أنيقة. يضيف لمسة دفء عصرية فوق أي قطعة من خزانتكِ مع قصّة مريحة وعملية.',
-    category: 'sets',
-    colors: ['رمادي دخاني', 'أسود'],
-    sizes: ['S', 'M', 'L'],
-    inStock: true
   }
 ];
