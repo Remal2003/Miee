@@ -557,7 +557,24 @@ export function subscribeToProducts(callback: (products: Product[]) => void) {
         if (!snapshot.empty) {
           firestoreProducts = [];
           snapshot.forEach((docSnap) => {
-            firestoreProducts.push({ id: docSnap.id, ...(docSnap.data() as Omit<Product, "id">) });
+            const data = docSnap.data();
+            const productImages = Array.isArray(data.images) && data.images.length > 0
+              ? data.images
+              : (data.image ? [data.image] : []);
+            firestoreProducts.push({
+              id: docSnap.id,
+              name: data.name || "",
+              price: Number(data.price) || 0,
+              image: data.image || (productImages[0] || ""),
+              images: productImages,
+              description: data.description || "",
+              category: data.category || "all",
+              colors: data.colors || [],
+              sizes: data.sizes || [],
+              tag: data.tag || "",
+              tagStyle: data.tagStyle || "orange",
+              inStock: data.inStock !== false
+            });
           });
           mergeAndEmit();
         }
@@ -585,13 +602,19 @@ export async function saveProductToFirebase(product: Product) {
 
   try {
     const prodRef = doc(db, "products", product.id);
+    const productImages = Array.isArray(product.images) && product.images.length > 0
+      ? product.images
+      : (product.image ? [product.image] : []);
+
     await setDoc(prodRef, {
       name: product.name,
       price: Number(product.price),
       image: product.image,
-      category: product.category,
-      colors: product.colors,
-      sizes: product.sizes,
+      images: productImages,
+      description: product.description || "",
+      category: product.category || "all",
+      colors: product.colors || [],
+      sizes: product.sizes || [],
       tag: product.tag || "",
       tagStyle: product.tagStyle || "orange",
       inStock: product.inStock !== false

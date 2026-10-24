@@ -377,7 +377,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
         .filter(Boolean);
 
       const additionalUrls = newProdAdditionalImages
-        .split(/[\n,]+/)
+        .split(/\r?\n/)
         .map((u) => u.trim())
         .filter((u) => u.length > 5 && u !== newProdImage.trim());
 
@@ -461,7 +461,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
         .filter(Boolean);
 
       const additionalUrls = editProdAdditionalImages
-        .split(/[\n,]+/)
+        .split(/\r?\n/)
         .map((u) => u.trim())
         .filter((u) => u.length > 5 && u !== editProdImage.trim());
 
@@ -2221,6 +2221,44 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                       placeholder="https://...&#10;https://..."
                       className="w-full p-3.5 bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 transition-all font-latin text-xs"
                     />
+
+                    {/* Live Gallery Preview in Add Form */}
+                    {(() => {
+                      const urls = newProdAdditionalImages
+                        .split(/\r?\n/)
+                        .map((u) => u.trim())
+                        .filter((u) => u.length > 5);
+                      if (urls.length === 0) return null;
+                      return (
+                        <div className="mt-2 p-2.5 bg-neutral-100/70 border border-neutral-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-neutral-600">
+                            <span>{language === 'ar' ? 'معاينة الصور الإضافية للمعرض:' : 'Gallery Images Preview:'}</span>
+                            <span className="font-latin text-orange-600 font-bold">({urls.length})</span>
+                          </div>
+                          <div className="flex items-center gap-2 overflow-x-auto py-1">
+                            {urls.map((url, idx) => (
+                              <div
+                                key={idx}
+                                className="relative aspect-[3/4] w-14 shrink-0 rounded-lg overflow-hidden border border-neutral-200 bg-white shadow-2xs group"
+                              >
+                                <img
+                                  src={url}
+                                  alt={`Gallery ${idx + 1}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.opacity = '0.35';
+                                    e.currentTarget.title = 'تعذر تحميل هذا الرابط - يرجى التأكد منه';
+                                  }}
+                                />
+                                <span className="absolute bottom-1 right-1 bg-neutral-900/85 backdrop-blur-xs text-white text-[8px] px-1.5 py-0.5 rounded font-latin font-bold">
+                                  #{idx + 1}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Live Fashion Portrait Preview (3:4 aspect ratio) */}
@@ -2629,6 +2667,44 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                           placeholder="https://...&#10;https://..."
                           className="w-full p-3.5 bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 transition-all font-latin text-xs"
                         />
+
+                        {/* Live Gallery Preview in Edit Modal */}
+                        {(() => {
+                          const urls = editProdAdditionalImages
+                            .split(/\r?\n/)
+                            .map((u) => u.trim())
+                            .filter((u) => u.length > 5);
+                          if (urls.length === 0) return null;
+                          return (
+                            <div className="mt-2 p-2.5 bg-neutral-100/70 border border-neutral-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                              <div className="flex items-center justify-between text-[10px] font-bold text-neutral-600">
+                                <span>{language === 'ar' ? 'معاينة الصور الإضافية للمعرض:' : 'Gallery Images Preview:'}</span>
+                                <span className="font-latin text-orange-600 font-bold">({urls.length})</span>
+                              </div>
+                              <div className="flex items-center gap-2 overflow-x-auto py-1">
+                                {urls.map((url, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="relative aspect-[3/4] w-14 shrink-0 rounded-lg overflow-hidden border border-neutral-200 bg-white shadow-2xs group"
+                                  >
+                                    <img
+                                      src={url}
+                                      alt={`Gallery ${idx + 1}`}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLElement).style.opacity = '0.35';
+                                        e.currentTarget.title = 'تعذر تحميل هذا الرابط - يرجى التأكد منه';
+                                      }}
+                                    />
+                                    <span className="absolute bottom-1 right-1 bg-neutral-900/85 backdrop-blur-xs text-white text-[8px] px-1.5 py-0.5 rounded font-latin font-bold">
+                                      #{idx + 1}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Live Image Preview in Edit Modal */}

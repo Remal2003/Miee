@@ -28,16 +28,28 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const allImages = React.useMemo(() => {
     if (!product) return [];
     const list: string[] = [];
-    if (product.image && typeof product.image === 'string' && product.image.trim()) {
-      list.push(product.image.trim());
-    }
-    if (Array.isArray(product.images)) {
-      product.images.forEach((img) => {
-        if (typeof img === 'string' && img.trim() && !list.includes(img.trim())) {
-          list.push(img.trim());
+    const addUrl = (url: any) => {
+      if (typeof url === 'string') {
+        const trimmed = url.trim();
+        if (trimmed.length > 5 && !list.includes(trimmed)) {
+          list.push(trimmed);
         }
-      });
+      }
+    };
+
+    addUrl(product.image);
+
+    if (Array.isArray(product.images)) {
+      product.images.forEach(addUrl);
+    } else if (typeof product.images === 'string') {
+      try {
+        const parsed = JSON.parse(product.images);
+        if (Array.isArray(parsed)) parsed.forEach(addUrl);
+      } catch {
+        (product.images as string).split(/\r?\n/).forEach(addUrl);
+      }
     }
+
     return list.length > 0 ? list : (product.image ? [product.image] : []);
   }, [product]);
 
