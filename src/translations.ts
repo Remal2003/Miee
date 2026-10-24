@@ -140,8 +140,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     title: 'Miee — أناقةٌ تشبهك',
     announcements: [
       'توصيل سريع إلى 58 ولاية',
-      'الدفع عند الاستلام',
-      'استبدال سهل خلال 15 يوماً'
+      'الدفع عند الاستلام'
     ],
     nav: {
       new: 'الجديد',
@@ -299,8 +298,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     title: 'Miee — Elegance, quietly spoken',
     announcements: [
       'Fast delivery across 58 wilayas',
-      'Cash on delivery',
-      'Easy exchanges within 15 days'
+      'Cash on delivery'
     ],
     nav: {
       new: 'New in',
@@ -458,8 +456,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     title: 'Miee — L’élégance en douceur',
     announcements: [
       'Livraison rapide dans 58 wilayas',
-      'Paiement à la livraison',
-      'Échange facile sous 15 jours'
+      'Paiement à la livraison'
     ],
     nav: {
       new: 'Nouveautés',
