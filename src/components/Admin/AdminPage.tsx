@@ -2707,7 +2707,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
 
               {/* Products Grid: Compact Squares on Mobile (2 columns), Haute Couture Portrait on Desktop */}
               <div className="grid grid-cols-2 sm:grid-cols-2 gap-2.5 sm:gap-4">
-                {products.map((prod) => (
+                {products.length === 0 ? (
+                  <div className="col-span-2 py-16 text-center border-2 border-dashed border-neutral-200 rounded-2xl bg-neutral-50/50 p-6 flex flex-col items-center justify-center">
+                    <span className="text-3xl mb-2">👗</span>
+                    <p className="text-xs font-bold text-neutral-800 font-arabic">
+                      {language === 'ar' ? 'الكتالوج فارغ حالياً' : 'No products in catalog yet'}
+                    </p>
+                    <p className="text-[11px] text-neutral-400 font-arabic mt-1">
+                      {language === 'ar' ? 'استخدم الاستوديو على اليمين لإضافة قطعتك الأولى ونشرها في المتجر!' : 'Use the form to add your first clothing piece!'}
+                    </p>
+                  </div>
+                ) : (
+                  products.map((prod) => (
                   <div
                     key={prod.id}
                     className="bg-white border border-neutral-200/80 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md hover:border-neutral-300 transition-all duration-200 flex flex-col justify-between group overflow-hidden"
@@ -2854,7 +2865,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                       </div>
                     </div>
                   </div>
-                ))}
+                ))
+              )}
               </div>
             </div>
 

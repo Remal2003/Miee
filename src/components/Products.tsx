@@ -101,8 +101,23 @@ export const Products: React.FC<ProductsProps> = ({ onOpenProduct }) => {
         </div>
       </div>
 
-      {/* Grid: 2 columns on mobile, 4 columns on desktop */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
+      {/* Grid or Empty State */}
+      {filteredProducts.length === 0 ? (
+        <div className="py-20 text-center flex flex-col items-center justify-center border border-dashed border-neutral-300/80 rounded-2xl bg-neutral-50/50 p-8">
+          <div className="w-14 h-14 rounded-full bg-cream flex items-center justify-center text-ink/40 mb-3 text-2xl">
+            ✨
+          </div>
+          <h3 className="text-sm font-semibold text-ink font-arabic mb-1">
+            {language === 'ar' ? 'الكتالوج بانتظار إضافة قطع جديدة' : 'Catalog awaiting new pieces'}
+          </h3>
+          <p className="text-xs text-neutral-500 max-w-sm font-arabic">
+            {language === 'ar'
+              ? 'تتم إضافة أحدث التصاميم والقطع تدريجياً عبر لوحة الإدارة.'
+              : 'New designs and pieces will be published shortly via the admin portal.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
         {filteredProducts.map(product => {
           const isLiked = !!likedMap[product.id];
           const name = t.productNames[product.id] || product.name;
@@ -235,6 +250,7 @@ export const Products: React.FC<ProductsProps> = ({ onOpenProduct }) => {
           );
         })}
       </div>
+      )}
 
       {/* Product Detail Modal */}
       <ProductDetailModal

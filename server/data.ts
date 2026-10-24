@@ -66,45 +66,4 @@ export const SERVER_WILAYAS: ServerWilaya[] = [
   { id: '58', name: 'المنيعة - El Meniaa', homePrice: 1000, officePrice: 700 }
 ];
 
-export const SERVER_PRODUCTS = [
-  {
-    id: 'noor',
-    name: 'عباية نُور',
-    price: 6900,
-    image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?auto=format&fit=crop&w=800&q=80',
-    category: 'abayas',
-    colors: ['أسود ليلي', 'بيج رملي', 'أخضر زيتوني'],
-    sizes: ['S', 'M', 'L', 'XL'],
-    tag: 'جديد',
-    tagStyle: 'orange'
-  },
-  {
-    id: 'sama',
-    name: 'طقم سَما',
-    price: 7400,
-    image: 'https://images.unsplash.com/photo-1596783074918-c84cb06531ca?auto=format&fit=crop&w=800&q=80',
-    category: 'sets',
-    colors: ['بيج رملي', 'أسود', 'كحلي'],
-    sizes: ['S', 'M', 'L']
-  },
-  {
-    id: 'lina',
-    name: 'فستان لِين',
-    price: 5800,
-    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80',
-    category: 'dresses',
-    colors: ['بني موكا', 'عنابي', 'رمادي'],
-    sizes: ['S', 'M', 'L', 'XL'],
-    tag: 'الأكثر طلباً',
-    tagStyle: 'soft'
-  },
-  {
-    id: 'mada',
-    name: 'جاكيت مَدى',
-    price: 6200,
-    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80',
-    category: 'sets',
-    colors: ['رمادي دخاني', 'أسود'],
-    sizes: ['S', 'M', 'L']
-  }
-];
+export const SERVER_PRODUCTS: any[] = [];

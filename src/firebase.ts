@@ -675,9 +675,10 @@ export async function clearAllOrdersFromFirebase() {
 
 const PRODUCTS_STORAGE_KEY = "miee_custom_products";
 const DELETED_PRODUCTS_KEY = "miee_deleted_product_ids";
+const DEFAULT_DUMMY_IDS = new Set<string>(["noor", "sama", "lina", "mada"]);
 
 function getDeletedProductIds(): Set<string> {
-  const set = new Set<string>(["mada"]); // 'mada' (جاكيت مدى) is permanently deleted
+  const set = new Set<string>(DEFAULT_DUMMY_IDS);
   try {
     const raw = localStorage.getItem(DELETED_PRODUCTS_KEY);
     if (raw) {
@@ -700,17 +701,18 @@ function getLocalProducts(): Product[] {
   const deleted = getDeletedProductIds();
   try {
     const raw = localStorage.getItem(PRODUCTS_STORAGE_KEY);
-    const list: Product[] = raw ? JSON.parse(raw) : PRODUCTS;
-    return list.filter((p) => p && !deleted.has(p.id) && p.id !== "mada");
-  } catch {
-    return PRODUCTS.filter((p) => p && !deleted.has(p.id) && p.id !== "mada");
-  }
+    if (raw) {
+      const list: Product[] = JSON.parse(raw);
+      return list.filter((p) => p && !deleted.has(p.id) && !DEFAULT_DUMMY_IDS.has(p.id));
+    }
+  } catch {}
+  return [];
 }
 
 function saveLocalProducts(list: Product[]) {
   try {
     const deleted = getDeletedProductIds();
-    const cleanList = list.filter((p) => p && !deleted.has(p.id) && p.id !== "mada");
+    const cleanList = list.filter((p) => p && !deleted.has(p.id) && !DEFAULT_DUMMY_IDS.has(p.id));
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(cleanList));
     window.dispatchEvent(new Event("miee_products_updated"));
   } catch (e) {
@@ -726,10 +728,10 @@ export function subscribeToProducts(callback: (products: Product[]) => void) {
     const local = getLocalProducts();
     const map = new Map<string, Product>();
     local.forEach((p) => {
-      if (!deletedSet.has(p.id) && p.id !== "mada") map.set(p.id, p);
+      if (!deletedSet.has(p.id) && !DEFAULT_DUMMY_IDS.has(p.id)) map.set(p.id, p);
     });
     firestoreProducts.forEach((p) => {
-      if (!deletedSet.has(p.id) && p.id !== "mada") map.set(p.id, p);
+      if (!deletedSet.has(p.id) && !DEFAULT_DUMMY_IDS.has(p.id)) map.set(p.id, p);
     });
     callback(Array.from(map.values()));
   };
