@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   subscribeToOrders,
@@ -13,6 +13,7 @@ import {
   loginWithFirebase,
   logoutFromFirebase,
   onAuthChange,
+  uploadProductImage,
   FirebaseOrder
 } from '../../firebase';
 import { Product, Wilaya } from '../../types';
@@ -141,6 +142,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
   const [editProdInStock, setEditProdInStock] = useState<boolean>(true);
   const [isUpdatingProduct, setIsUpdatingProduct] = useState(false);
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
+
+  // Direct Device/Phone Image Upload States & Refs
+  const [isUploadingMainImage, setIsUploadingMainImage] = useState(false);
+  const [isUploadingGalleryImages, setIsUploadingGalleryImages] = useState(false);
+  const [galleryUploadProgress, setGalleryUploadProgress] = useState('');
+  const mainFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isEditUploadingMainImage, setIsEditUploadingMainImage] = useState(false);
+  const [isEditUploadingGalleryImages, setIsEditUploadingGalleryImages] = useState(false);
+  const [editGalleryUploadProgress, setEditGalleryUploadProgress] = useState('');
+  const editMainFileInputRef = useRef<HTMLInputElement>(null);
+  const editGalleryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Shipping save status
   const [isSavingShipping, setIsSavingShipping] = useState(false);
@@ -493,6 +507,116 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
       alert('Error updating product.');
     } finally {
       setIsUpdatingProduct(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // Direct Device/Phone Image Upload & Gallery Handlers
+  // -------------------------------------------------------------
+
+  const handleRemoveGalleryImage = (indexToRemove: number, isEdit: boolean = false) => {
+    if (isEdit) {
+      const urls = editProdAdditionalImages
+        .split(/\r?\n/)
+        .map((u) => u.trim())
+        .filter((u) => u.length > 5);
+      urls.splice(indexToRemove, 1);
+      setEditProdAdditionalImages(urls.join('\n'));
+    } else {
+      const urls = newProdAdditionalImages
+        .split(/\r?\n/)
+        .map((u) => u.trim())
+        .filter((u) => u.length > 5);
+      urls.splice(indexToRemove, 1);
+      setNewProdAdditionalImages(urls.join('\n'));
+    }
+  };
+
+  const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingMainImage(true);
+    try {
+      const url = await uploadProductImage(file);
+      setNewProdImage(url);
+    } catch (err) {
+      console.error('Error uploading main image:', err);
+    } finally {
+      setIsUploadingMainImage(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleGalleryImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploadingGalleryImages(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        setGalleryUploadProgress(
+          language === 'ar'
+            ? `جاري رفع الصورة ${i + 1} من ${files.length}...`
+            : language === 'fr'
+            ? `Téléversement ${i + 1}/${files.length}...`
+            : `Uploading ${i + 1}/${files.length}...`
+        );
+        const url = await uploadProductImage(files[i]);
+        uploadedUrls.push(url);
+      }
+      const existing = newProdAdditionalImages.trim();
+      const newUrlsStr = uploadedUrls.join('\n');
+      setNewProdAdditionalImages(existing ? `${existing}\n${newUrlsStr}` : newUrlsStr);
+    } catch (err) {
+      console.error('Error uploading gallery images:', err);
+    } finally {
+      setIsUploadingGalleryImages(false);
+      setGalleryUploadProgress('');
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleEditMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsEditUploadingMainImage(true);
+    try {
+      const url = await uploadProductImage(file);
+      setEditProdImage(url);
+    } catch (err) {
+      console.error('Error uploading main image in edit:', err);
+    } finally {
+      setIsEditUploadingMainImage(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleEditGalleryImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsEditUploadingGalleryImages(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        setEditGalleryUploadProgress(
+          language === 'ar'
+            ? `جاري رفع الصورة ${i + 1} من ${files.length}...`
+            : language === 'fr'
+            ? `Téléversement ${i + 1}/${files.length}...`
+            : `Uploading ${i + 1}/${files.length}...`
+        );
+        const url = await uploadProductImage(files[i]);
+        uploadedUrls.push(url);
+      }
+      const existing = editProdAdditionalImages.trim();
+      const newUrlsStr = uploadedUrls.join('\n');
+      setEditProdAdditionalImages(existing ? `${existing}\n${newUrlsStr}` : newUrlsStr);
+    } catch (err) {
+      console.error('Error uploading gallery images in edit:', err);
+    } finally {
+      setIsEditUploadingGalleryImages(false);
+      setEditGalleryUploadProgress('');
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -2194,7 +2318,21 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
 
                   {/* Image URL */}
                   <div>
-                    <label className="block font-semibold mb-1.5 text-neutral-900 text-xs">{at.products.imageLabel}</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="font-semibold text-neutral-900 text-xs">{at.products.imageLabel}</label>
+                      <button
+                        type="button"
+                        onClick={() => mainFileInputRef.current?.click()}
+                        disabled={isUploadingMainImage}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-orange-600 hover:text-orange-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>{language === 'ar' ? 'رفع من الهاتف / الكاميرا' : language === 'fr' ? 'Téléverser photo' : 'Upload photo'}</span>
+                      </button>
+                    </div>
                     <input
                       type="url"
                       required
@@ -2203,17 +2341,67 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                       onChange={(e) => setNewProdImage(e.target.value)}
                       className="w-full h-11 px-4 bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 transition-all font-latin text-xs"
                     />
+
+                    {/* Hidden Main Image File Input */}
+                    <input
+                      ref={mainFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleMainImageUpload}
+                    />
+
+                    {/* Upload button and status */}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => mainFileInputRef.current?.click()}
+                        disabled={isUploadingMainImage}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white rounded-xl text-xs font-medium active:scale-95 transition-all disabled:opacity-60 cursor-pointer shadow-2xs"
+                      >
+                        {isUploadingMainImage ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>{language === 'ar' ? 'جاري ضغط ورفع الصورة...' : language === 'fr' ? 'Téléversement en cours...' : 'Uploading image...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>{language === 'ar' ? 'اختيار صورة من الهاتف أو الكاميرا' : language === 'fr' ? 'Choisir depuis le téléphone' : 'Choose from device'}</span>
+                          </>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-neutral-400">
+                        {language === 'ar' ? 'ضغط تلقائي فوري لتوفير المساحة وسرعة التصفح' : language === 'fr' ? 'Compression auto pour chargement rapide' : 'Smart compression for fast loading'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Additional Images (Gallery) */}
                   <div>
-                    <label className="block font-semibold mb-1.5 text-neutral-900 text-xs">
-                      {language === 'ar'
-                        ? 'صور إضافية للمعرض (رابط في كل سطر)'
-                        : language === 'fr'
-                        ? 'Images supplémentaires de la galerie (une URL par ligne)'
-                        : 'Additional Gallery Images (one URL per line)'}
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="font-semibold text-neutral-900 text-xs">
+                        {language === 'ar'
+                          ? 'صور إضافية للمعرض (رابط في كل سطر)'
+                          : language === 'fr'
+                          ? 'Images supplémentaires de la galerie (une URL par ligne)'
+                          : 'Additional Gallery Images (one URL per line)'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => galleryFileInputRef.current?.click()}
+                        disabled={isUploadingGalleryImages}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-orange-600 hover:text-orange-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>{language === 'ar' ? 'رفع صور متعددة' : language === 'fr' ? 'Sélectionner photos' : 'Select photos'}</span>
+                      </button>
+                    </div>
                     <textarea
                       rows={2}
                       value={newProdAdditionalImages}
@@ -2221,6 +2409,43 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                       placeholder="https://...&#10;https://..."
                       className="w-full p-3.5 bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 transition-all font-latin text-xs"
                     />
+
+                    {/* Hidden Multi Gallery Files Input */}
+                    <input
+                      ref={galleryFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleGalleryImagesUpload}
+                    />
+
+                    {/* Gallery upload button and info */}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => galleryFileInputRef.current?.click()}
+                        disabled={isUploadingGalleryImages}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-xs font-medium active:scale-95 transition-all disabled:opacity-60 cursor-pointer border border-neutral-300/80 shadow-2xs"
+                      >
+                        {isUploadingGalleryImages ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-neutral-600/30 border-t-neutral-800 rounded-full animate-spin" />
+                            <span>{galleryUploadProgress || (language === 'ar' ? 'جاري ضغط ورفع الصور...' : 'Uploading...')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>{language === 'ar' ? 'رفع صور متعددة للمعرض من الهاتف' : language === 'fr' ? 'Téléverser plusieurs photos (galerie)' : 'Upload multiple photos (gallery)'}</span>
+                          </>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-neutral-400">
+                        {language === 'ar' ? '(يمكنك تحديد أكثر من صورة دفعة واحدة)' : language === 'fr' ? '(sélectionnez plusieurs images)' : '(select multiple images)'}
+                      </span>
+                    </div>
 
                     {/* Live Gallery Preview in Add Form */}
                     {(() => {
@@ -2230,7 +2455,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                         .filter((u) => u.length > 5);
                       if (urls.length === 0) return null;
                       return (
-                        <div className="mt-2 p-2.5 bg-neutral-100/70 border border-neutral-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                        <div className="mt-2.5 p-2.5 bg-neutral-100/70 border border-neutral-200/80 rounded-xl space-y-1.5 shadow-2xs">
                           <div className="flex items-center justify-between text-[10px] font-bold text-neutral-600">
                             <span>{language === 'ar' ? 'معاينة الصور الإضافية للمعرض:' : 'Gallery Images Preview:'}</span>
                             <span className="font-latin text-orange-600 font-bold">({urls.length})</span>
@@ -2250,6 +2475,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                                     e.currentTarget.title = 'تعذر تحميل هذا الرابط - يرجى التأكد منه';
                                   }}
                                 />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveGalleryImage(idx, false)}
+                                  title={language === 'ar' ? 'حذف هذه الصورة من المعرض' : 'Remove this image'}
+                                  className="absolute top-1 left-1 w-4 h-4 bg-rose-600/90 hover:bg-rose-700 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs active:scale-90 transition-all cursor-pointer"
+                                >
+                                  ×
+                                </button>
                                 <span className="absolute bottom-1 right-1 bg-neutral-900/85 backdrop-blur-xs text-white text-[8px] px-1.5 py-0.5 rounded font-latin font-bold">
                                   #{idx + 1}
                                 </span>
@@ -2641,7 +2874,21 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
 
                       {/* Image URL */}
                       <div>
-                        <label className="block font-semibold mb-1.5 text-neutral-800 text-xs">{at.products.imageLabel}</label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-semibold text-neutral-800 text-xs">{at.products.imageLabel}</label>
+                          <button
+                            type="button"
+                            onClick={() => editMainFileInputRef.current?.click()}
+                            disabled={isEditUploadingMainImage}
+                            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-orange-600 hover:text-orange-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>{language === 'ar' ? 'رفع من الهاتف / الكاميرا' : language === 'fr' ? 'Téléverser photo' : 'Upload photo'}</span>
+                          </button>
+                        </div>
                         <input
                           type="url"
                           required
@@ -2649,17 +2896,67 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                           onChange={(e) => setEditProdImage(e.target.value)}
                           className="w-full h-11 px-4 bg-neutral-50 border border-neutral-200 rounded-xl text-xs outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 transition-all font-latin"
                         />
+
+                        {/* Hidden Main Image File Input for Edit */}
+                        <input
+                          ref={editMainFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleEditMainImageUpload}
+                        />
+
+                        {/* Edit upload button and status */}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => editMainFileInputRef.current?.click()}
+                            disabled={isEditUploadingMainImage}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white rounded-xl text-xs font-medium active:scale-95 transition-all disabled:opacity-60 cursor-pointer shadow-2xs"
+                          >
+                            {isEditUploadingMainImage ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>{language === 'ar' ? 'جاري ضغط ورفع الصورة...' : language === 'fr' ? 'Téléversement en cours...' : 'Uploading image...'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span>{language === 'ar' ? 'اختيار صورة جديدة من الهاتف' : language === 'fr' ? 'Choisir photo du téléphone' : 'Choose photo from device'}</span>
+                              </>
+                            )}
+                          </button>
+                          <span className="text-[11px] text-neutral-400">
+                            {language === 'ar' ? 'ضغط تلقائي فوري لتوفير المساحة' : language === 'fr' ? 'Compression auto' : 'Auto compressed'}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Additional Gallery Images */}
                       <div>
-                        <label className="block font-semibold mb-1.5 text-neutral-800 text-xs">
-                          {language === 'ar'
-                            ? 'صور إضافية للمعرض (رابط في كل سطر)'
-                            : language === 'fr'
-                            ? 'Images supplémentaires de la galerie (une URL par ligne)'
-                            : 'Additional Gallery Images (one URL per line)'}
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-semibold text-neutral-800 text-xs">
+                            {language === 'ar'
+                              ? 'صور إضافية للمعرض (رابط في كل سطر)'
+                              : language === 'fr'
+                              ? 'Images supplémentaires de la galerie (une URL par ligne)'
+                              : 'Additional Gallery Images (one URL per line)'}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => editGalleryFileInputRef.current?.click()}
+                            disabled={isEditUploadingGalleryImages}
+                            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-orange-600 hover:text-orange-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>{language === 'ar' ? 'رفع صور متعددة' : language === 'fr' ? 'Sélectionner photos' : 'Select photos'}</span>
+                          </button>
+                        </div>
                         <textarea
                           rows={3}
                           value={editProdAdditionalImages}
@@ -2667,6 +2964,43 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                           placeholder="https://...&#10;https://..."
                           className="w-full p-3.5 bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 transition-all font-latin text-xs"
                         />
+
+                        {/* Hidden Multi Gallery Files Input for Edit */}
+                        <input
+                          ref={editGalleryFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handleEditGalleryImagesUpload}
+                        />
+
+                        {/* Edit Gallery upload button and info */}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => editGalleryFileInputRef.current?.click()}
+                            disabled={isEditUploadingGalleryImages}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-xs font-medium active:scale-95 transition-all disabled:opacity-60 cursor-pointer border border-neutral-300/80 shadow-2xs"
+                          >
+                            {isEditUploadingGalleryImages ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-neutral-600/30 border-t-neutral-800 rounded-full animate-spin" />
+                                <span>{editGalleryUploadProgress || (language === 'ar' ? 'جاري ضغط ورفع الصور...' : 'Uploading...')}</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3.5 h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>{language === 'ar' ? 'رفع صور إضافية للمعرض من الهاتف' : language === 'fr' ? 'Téléverser d\'autres photos' : 'Upload gallery photos'}</span>
+                              </>
+                            )}
+                          </button>
+                          <span className="text-[11px] text-neutral-400">
+                            {language === 'ar' ? '(تحديد عدة صور معاً)' : language === 'fr' ? '(sélection multiple)' : '(select multiple)'}
+                          </span>
+                        </div>
 
                         {/* Live Gallery Preview in Edit Modal */}
                         {(() => {
@@ -2676,7 +3010,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                             .filter((u) => u.length > 5);
                           if (urls.length === 0) return null;
                           return (
-                            <div className="mt-2 p-2.5 bg-neutral-100/70 border border-neutral-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                            <div className="mt-2.5 p-2.5 bg-neutral-100/70 border border-neutral-200/80 rounded-xl space-y-1.5 shadow-2xs">
                               <div className="flex items-center justify-between text-[10px] font-bold text-neutral-600">
                                 <span>{language === 'ar' ? 'معاينة الصور الإضافية للمعرض:' : 'Gallery Images Preview:'}</span>
                                 <span className="font-latin text-orange-600 font-bold">({urls.length})</span>
@@ -2696,6 +3030,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                                         e.currentTarget.title = 'تعذر تحميل هذا الرابط - يرجى التأكد منه';
                                       }}
                                     />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveGalleryImage(idx, true)}
+                                      title={language === 'ar' ? 'حذف هذه الصورة من المعرض' : 'Remove this image'}
+                                      className="absolute top-1 left-1 w-4 h-4 bg-rose-600/90 hover:bg-rose-700 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs active:scale-90 transition-all cursor-pointer"
+                                    >
+                                      ×
+                                    </button>
                                     <span className="absolute bottom-1 right-1 bg-neutral-900/85 backdrop-blur-xs text-white text-[8px] px-1.5 py-0.5 rounded font-latin font-bold">
                                       #{idx + 1}
                                     </span>
