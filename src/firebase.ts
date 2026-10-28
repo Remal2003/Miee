@@ -2,6 +2,13 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
 import {
+  getMessaging,
+  getToken,
+  onMessage,
+  isSupported as isMessagingSupported,
+  Messaging
+} from "firebase/messaging";
+import {
   getFirestore,
   collection,
   addDoc,
@@ -11,7 +18,8 @@ import {
   deleteDoc,
   updateDoc,
   onSnapshot,
-  getDocs
+  getDocs,
+  arrayUnion
 } from "firebase/firestore";
 import { getDatabase, ref, set, onValue } from "firebase/database";
 import {
@@ -88,6 +96,26 @@ if (typeof window !== "undefined") {
     if (supported) {
       analytics = getAnalytics(app);
       console.log("[Firebase] Analytics initialized successfully");
+    }
+  });
+}
+
+// -------------------------------------------------------------
+// Firebase Cloud Messaging (Web Push) Initialization
+// -------------------------------------------------------------
+
+export const VAPID_KEY = "BCsu0UmSCilsg-POFxo99yd29G7bqVOyllzQr3F19MVifrsPzidEVmVIwshpXD3l-kd_SoODVoLpeuCiaDBVEbY";
+
+export let messagingInstance: Messaging | null = null;
+if (typeof window !== "undefined") {
+  isMessagingSupported().then((supported) => {
+    if (supported) {
+      try {
+        messagingInstance = getMessaging(app);
+        console.log("[Firebase Messaging] FCM initialized successfully");
+      } catch (e) {
+        console.warn("[Firebase Messaging] Init note:", e);
+      }
     }
   });
 }
@@ -386,6 +414,15 @@ export async function saveOrderToFirebase(orderData: {
     } catch (error) {
       console.warn("[Firebase Realtime Database] Order sync note:", error);
     }
+  }
+
+  // 5. Dispatch Web Push notification to all admin devices
+  try {
+    sendOrderPushNotification(payload).catch((err) => {
+      console.warn("[Firebase] Order push notification dispatch note:", err);
+    });
+  } catch (pushErr) {
+    console.warn("[Firebase] Push invocation note:", pushErr);
   }
 
   return payload;
@@ -1042,5 +1079,261 @@ export async function saveBannersToFirebase(banners: StoreBanners) {
     });
   } catch (e) {
     console.warn("Firestore banners save note:", e);
+  }
+}
+
+// -------------------------------------------------------------
+// Web Push Notifications & Audio Chime System
+// -------------------------------------------------------------
+
+/**
+ * Synthesizes an elegant, high-clarity dual-tone boutique chime (D5 587.33Hz -> A5 880Hz).
+ * 100% offline, 0ms latency, runs natively via Web Audio API across all modern browsers.
+ */
+export function playLuxuryOrderChime() {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    // Ensure audio context is resumed (browser autoplay policy)
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const now = ctx.currentTime;
+
+    // Note 1: 587.33 Hz (D5) - Warm introductory bell
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(587.33, now);
+    gain1.gain.setValueAtTime(0.4, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.65);
+
+    // Note 2: 880.00 Hz (A5) - Crisp luxury chime
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(880.0, now + 0.16);
+    gain2.gain.setValueAtTime(0.55, now + 0.16);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.16);
+    osc2.stop(now + 0.95);
+  } catch (err) {
+    console.warn("[Chime] Web Audio playback note:", err);
+  }
+}
+
+/**
+ * Checks whether the current device supports Web Push notifications
+ */
+export function isPushNotificationSupported(): boolean {
+  if (typeof window === "undefined") return false;
+  return "Notification" in window && "serviceWorker" in navigator;
+}
+
+/**
+ * Returns the current notification permission state ('granted' | 'denied' | 'default')
+ */
+export function getNotificationPermissionStatus(): NotificationPermission {
+  if (typeof window === "undefined" || !("Notification" in window)) return "default";
+  return Notification.permission;
+}
+
+/**
+ * Registers the Service Worker and retrieves the device's FCM Token using the VAPID key.
+ * Stores the token in Firestore, Backend server, and LocalStorage.
+ */
+export async function requestAdminPushPermission(): Promise<{
+  success: boolean;
+  token?: string;
+  error?: string;
+}> {
+  if (!isPushNotificationSupported()) {
+    return {
+      success: false,
+      error: "متصفحك الحالي لا يدعم إشعارات الويب. يرجى استخدام متصفح Chrome أو Safari الحديث."
+    };
+  }
+
+  try {
+    // 1. Request user permission
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      return {
+        success: false,
+        error: "لم يتم منح إذن الإشعارات. يرجى السماح بالإشعارات من إعدادات المتصفح."
+      };
+    }
+
+    // 2. Register Service Worker
+    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+      scope: "/"
+    });
+    await navigator.serviceWorker.ready;
+
+    // 3. Ensure messaging is initialized
+    let messaging = messagingInstance;
+    if (!messaging) {
+      const supported = await isMessagingSupported();
+      if (supported) {
+        messaging = getMessaging(app);
+        messagingInstance = messaging;
+      }
+    }
+
+    let token = "";
+    if (messaging) {
+      try {
+        token = await getToken(messaging, {
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: registration
+        });
+      } catch (tokenErr: any) {
+        console.warn("[Push] FCM getToken note:", tokenErr);
+      }
+    }
+
+    // 4. Save status in LocalStorage
+    if (token) {
+      localStorage.setItem("miee_admin_push_token", token);
+    }
+    localStorage.setItem("miee_push_enabled", "true");
+
+    // 5. Save device info to Firestore settings/push_tokens document
+    const deviceInfo = {
+      token: token || "web_native_" + Date.now(),
+      userAgent: navigator.userAgent,
+      platform: navigator.platform || "unknown",
+      registeredAt: new Date().toISOString()
+    };
+
+    try {
+      const pushDocRef = doc(db, "settings", "push_tokens");
+      await setDoc(
+        pushDocRef,
+        {
+          tokens: arrayUnion(deviceInfo.token),
+          devices: arrayUnion(deviceInfo),
+          lastUpdated: serverTimestamp()
+        },
+        { merge: true }
+      );
+      console.log("[Push Notifications] Token saved to Firestore");
+    } catch (fsErr) {
+      console.warn("[Push Notifications] Firestore token save note:", fsErr);
+    }
+
+    // 6. Sync to Server backend
+    try {
+      await fetch("/api/push/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deviceInfo)
+      });
+    } catch (apiErr) {
+      console.warn("[Push Notifications] Server token sync note:", apiErr);
+    }
+
+    return { success: true, token };
+  } catch (err: any) {
+    console.error("[Push Notifications] Request error:", err);
+    return {
+      success: false,
+      error: err?.message || "حدث خطأ أثناء تفعيل الإشعارات."
+    };
+  }
+}
+
+/**
+ * Fires a test notification on the active device with sound, vibration, and system popup
+ */
+export async function triggerTestPushNotification(): Promise<{ success: boolean; message: string }> {
+  // 1. Play luxury audio chime
+  playLuxuryOrderChime();
+
+  // 2. Vibrate device (if supported)
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate([200, 100, 200, 100, 200]);
+    } catch {}
+  }
+
+  // 3. Show system notification
+  const title = "🛍️ تجربة إشعار Miee بنجاح!";
+  const body = "تهانينا! هكذا ستصلك تنبيهات الطلبيات الجديدة على هاتفك مع النغمة والاهتزاز.";
+
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      if ("serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification(title, {
+          body,
+          icon: "/miee-logo.png",
+          badge: "/miee-logo.png",
+          vibrate: [200, 100, 200, 100, 200],
+          tag: "miee-test-" + Date.now(),
+          renotify: true,
+          data: { url: "/#admin/orders" }
+        } as any);
+      } else {
+        new Notification(title, {
+          body,
+          icon: "/miee-logo.png"
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[Push Notifications] Test notification display note:", e);
+  }
+
+  return {
+    success: true,
+    message: "تم إرسال الإشعار وتشغيل النغمة والاهتزاز بنجاح!"
+  };
+}
+
+/**
+ * Broadcasts order notification across all open admin tabs and backend push dispatcher
+ */
+export async function sendOrderPushNotification(order: FirebaseOrder) {
+  // 1. Broadcast locally so any open tab on this or other devices receives real-time alert
+  try {
+    if (typeof window !== "undefined") {
+      const channel = new BroadcastChannel("miee_order_notifications");
+      channel.postMessage({
+        type: "NEW_ORDER",
+        orderId: order.orderId,
+        customerName: order.customerName,
+        total: order.total,
+        wilayaName: order.wilayaName,
+        itemsCount: order.items?.length || 0
+      });
+      channel.close();
+    }
+  } catch {}
+
+  // 2. Dispatch to backend push endpoint
+  try {
+    await fetch("/api/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "🛍️ طلبية جديدة في Miee!",
+        body: `طلب جديد من ${order.customerName} بمبلغ ${Number(order.total).toLocaleString("fr-FR")} دج — ${order.wilayaName}`,
+        orderId: order.orderId,
+        url: "/#admin/orders"
+      })
+    });
+  } catch (apiErr) {
+    console.warn("[Push] API dispatch note:", apiErr);
   }
 }

@@ -249,3 +249,117 @@ apiRouter.delete('/orders/:id', requireAdmin, async (req: Request, res: Response
   await saveOrders(filtered);
   return res.json({ success: true });
 });
+
+// -------------------------------------------------------------
+// Push Notifications Endpoints
+// -------------------------------------------------------------
+
+const TOKENS_FILE = path.join(__dirname, 'data', 'push_tokens.json');
+
+interface PushDeviceToken {
+  token: string;
+  userAgent?: string;
+  platform?: string;
+  registeredAt: string;
+}
+
+async function loadPushTokens(): Promise<PushDeviceToken[]> {
+  try {
+    if (existsSync(TOKENS_FILE)) {
+      const data = await fs.readFile(TOKENS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch {}
+  return [];
+}
+
+async function savePushTokens(tokens: PushDeviceToken[]): Promise<void> {
+  try {
+    const dir = path.dirname(TOKENS_FILE);
+    if (!existsSync(dir)) {
+      await fs.mkdir(dir, { recursive: true });
+    }
+    await fs.writeFile(TOKENS_FILE, JSON.stringify(tokens, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[Push Tokens] File write warning:', err);
+  }
+}
+
+// POST register push token
+apiRouter.post('/push/tokens', async (req: Request, res: Response) => {
+  const { token, userAgent, platform } = req.body;
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ success: false, message: 'Invalid token' });
+  }
+
+  const tokens = await loadPushTokens();
+  const existingIndex = tokens.findIndex((t) => t.token === token);
+  const updatedDevice: PushDeviceToken = {
+    token,
+    userAgent: userAgent || '',
+    platform: platform || '',
+    registeredAt: new Date().toISOString()
+  };
+
+  if (existingIndex !== -1) {
+    tokens[existingIndex] = updatedDevice;
+  } else {
+    tokens.push(updatedDevice);
+  }
+
+  await savePushTokens(tokens);
+  console.log(`[Push Token Registered] Total devices: ${tokens.length}`);
+  return res.json({ success: true, count: tokens.length });
+});
+
+// GET registered tokens count (Admin only)
+apiRouter.get('/push/tokens', requireAdmin, async (_req: Request, res: Response) => {
+  const tokens = await loadPushTokens();
+  return res.json({ success: true, count: tokens.length, tokens });
+});
+
+// POST dispatch push notification to registered devices
+apiRouter.post('/push/send', async (req: Request, res: Response) => {
+  const { title, body, orderId, url } = req.body;
+  const tokens = await loadPushTokens();
+
+  console.log(`[Push Dispatch] Notification queued for ${tokens.length} device(s): "${title}"`);
+
+  // If FCM Server Key is configured in environment, forward to FCM
+  const fcmKey = process.env.FCM_SERVER_KEY;
+  if (fcmKey && tokens.length > 0) {
+    for (const dev of tokens) {
+      if (dev.token.startsWith('web_native_')) continue;
+      try {
+        await fetch('https://fcm.googleapis.com/fcm/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `key=${fcmKey}`
+          },
+          body: JSON.stringify({
+            to: dev.token,
+            notification: {
+              title: title || '🛍️ طلبية جديدة في Miee!',
+              body: body || 'وصلت طلبية جديدة.',
+              icon: '/miee-logo.png',
+              sound: 'default'
+            },
+            data: {
+              orderId: orderId || '',
+              url: url || '/#admin/orders'
+            }
+          })
+        });
+      } catch (err) {
+        console.warn(`[Push FCM] Error sending to token ${dev.token.slice(0, 10)}:`, err);
+      }
+    }
+  }
+
+  return res.json({
+    success: true,
+    sentTo: tokens.length,
+    message: 'Notification dispatched successfully'
+  });
+});

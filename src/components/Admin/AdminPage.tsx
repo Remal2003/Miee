@@ -17,7 +17,12 @@ import {
   subscribeToBanners,
   saveBannersToFirebase,
   DEFAULT_STORE_BANNERS,
-  FirebaseOrder
+  FirebaseOrder,
+  playLuxuryOrderChime,
+  requestAdminPushPermission,
+  triggerTestPushNotification,
+  isPushNotificationSupported,
+  getNotificationPermissionStatus
 } from '../../firebase';
 import { Product, Wilaya } from '../../types';
 import { WILAYAS } from '../../data/wilayas';
@@ -177,6 +182,23 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
   const heroBannerFileRef = useRef<HTMLInputElement>(null);
   const philosophyBannerFileRef = useRef<HTMLInputElement>(null);
 
+  // Web Push Notifications & Audio Chime System State
+  const [pushStatus, setPushStatus] = useState<NotificationPermission>('default');
+  const [isActivatingPush, setIsActivatingPush] = useState(false);
+  const [pushSuccessMsg, setPushSuccessMsg] = useState('');
+  const [pushErrorMsg, setPushErrorMsg] = useState('');
+  const [newOrderToast, setNewOrderToast] = useState<{
+    show: boolean;
+    orderId: string;
+    customerName: string;
+    total: number;
+    wilayaName?: string;
+  } | null>(null);
+
+  // Reference trackers to detect fresh orders arriving in real-time
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const isInitialOrderSyncRef = useRef<boolean>(true);
+
   // Luxury Haute Couture Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -254,6 +276,136 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
       if (typeof unsubBanners === 'function') unsubBanners();
     };
   }, [isAuthenticated]);
+
+  // Check notification permission state on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPushStatus(getNotificationPermissionStatus());
+    }
+  }, []);
+
+  // Listen for BroadcastChannel notifications (cross-tab / client checkout)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('miee_order_notifications');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'NEW_ORDER') {
+          playLuxuryOrderChime();
+          if ('vibrate' in navigator) {
+            navigator.vibrate([300, 100, 300, 100, 300]);
+          }
+          setNewOrderToast({
+            show: true,
+            orderId: event.data.orderId,
+            customerName: event.data.customerName,
+            total: event.data.total,
+            wilayaName: event.data.wilayaName
+          });
+        }
+      };
+    } catch {}
+    return () => {
+      try { channel?.close(); } catch {}
+    };
+  }, []);
+
+  // Detect brand new incoming orders in real-time
+  useEffect(() => {
+    if (!orders || orders.length === 0) return;
+
+    if (isInitialOrderSyncRef.current) {
+      orders.forEach((o) => knownOrderIdsRef.current.add(o.orderId));
+      isInitialOrderSyncRef.current = false;
+      return;
+    }
+
+    const freshOrders = orders.filter((o) => !knownOrderIdsRef.current.has(o.orderId));
+    if (freshOrders.length > 0) {
+      freshOrders.forEach((o) => knownOrderIdsRef.current.add(o.orderId));
+      const latest = freshOrders[0];
+
+      // Play boutique audio chime
+      playLuxuryOrderChime();
+
+      // Vibrate mobile device
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([300, 100, 300, 100, 300]);
+      }
+
+      // Show floating toast
+      setNewOrderToast({
+        show: true,
+        orderId: latest.orderId,
+        customerName: latest.customerName,
+        total: latest.total,
+        wilayaName: latest.wilayaName
+      });
+
+      // System notification if permission granted
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const title = `🛍️ طلبية جديدة في Miee! #${latest.orderId}`;
+        const body = `طلب من ${latest.customerName} بمبلغ ${Number(latest.total).toLocaleString('fr-FR')} دج — ${latest.wilayaName}`;
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification(title, {
+              body,
+              icon: '/miee-logo.png',
+              badge: '/miee-logo.png',
+              vibrate: [300, 100, 300, 100, 300],
+              tag: latest.orderId,
+              data: { url: '/#admin/orders' }
+            } as any);
+          }).catch(() => {
+            new Notification(title, { body, icon: '/miee-logo.png' });
+          });
+        } else {
+          new Notification(title, { body, icon: '/miee-logo.png' });
+        }
+      }
+    }
+  }, [orders]);
+
+  const handleActivatePush = async () => {
+    setIsActivatingPush(true);
+    setPushErrorMsg('');
+    setPushSuccessMsg('');
+    try {
+      const res = await requestAdminPushPermission();
+      if (res.success) {
+        setPushStatus('granted');
+        setPushSuccessMsg(
+          language === 'ar'
+            ? '✓ تم تفعيل الإشعارات بنجاح على هذا الهاتف! ستصلك التنبيهات مع نغمة واهتزاز فور تسجيل أي طلبية.'
+            : language === 'fr'
+            ? '✓ Notifications activées sur cet appareil avec son et vibration !'
+            : '✓ Order push notifications activated on this device with sound & vibration!'
+        );
+        playLuxuryOrderChime();
+      } else {
+        setPushErrorMsg(res.error || 'تعذر تفعيل الإشعارات.');
+      }
+    } catch (err: any) {
+      setPushErrorMsg(err?.message || 'تعذر تفعيل الإشعارات.');
+    } finally {
+      setIsActivatingPush(false);
+      setTimeout(() => {
+        setPushSuccessMsg('');
+        setPushErrorMsg('');
+      }, 7000);
+    }
+  };
+
+  const handleTestPush = async () => {
+    await triggerTestPushNotification();
+    setPushSuccessMsg(
+      language === 'ar'
+        ? '✓ تم إرسال الإشعار التجريبي وتشغيل النغمة والاهتزاز!'
+        : '✓ Test notification and chime sent!'
+    );
+    setTimeout(() => setPushSuccessMsg(''), 5000);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1533,6 +1685,49 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
         isRtl ? 'font-arabic' : 'font-latin'
       }`}
     >
+      {/* Floating Haute Couture Toast for Live Orders */}
+      <AnimatePresence>
+        {newOrderToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-20 right-4 sm:right-8 z-50 bg-[#121212] text-white p-4 sm:p-5 rounded-2xl shadow-2xl border border-orange/40 flex items-start gap-3.5 backdrop-blur-md max-w-sm w-full"
+          >
+            <div className="w-10 h-10 rounded-xl bg-orange flex items-center justify-center text-white shrink-0 shadow-lg text-lg animate-bounce">
+              🛍️
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold text-orange uppercase tracking-wider">
+                  {language === 'ar' ? 'طلبية جديدة وصلت الآن!' : 'New Order Received!'}
+                </span>
+                <button
+                  onClick={() => setNewOrderToast(null)}
+                  className="text-white/60 hover:text-white text-xs p-1"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-sm font-bold text-white truncate mt-0.5">{newOrderToast.customerName}</p>
+              <p className="text-xs text-white/80 font-arabic mt-0.5">
+                {Number(newOrderToast.total).toLocaleString('fr-FR')} دج · #{newOrderToast.orderId}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  scrollToOrders('all');
+                  setNewOrderToast(null);
+                }}
+                className="mt-2 text-[11px] font-bold text-orange hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span>{language === 'ar' ? 'عرض تفاصيل الطلبية' : 'View order details'}</span>
+                <span>{isRtl ? '←' : '→'}</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* ======================================================== */}
       {/* TOP ATELIER EXECUTIVE NAVIGATION (LUXURY MAISON CONSOLE) */}
       {/* ======================================================== */}
@@ -1583,6 +1778,33 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
                 FR
               </button>
             </div>
+
+            {/* Quick Push Notification Button */}
+            <button
+              type="button"
+              onClick={pushStatus === 'granted' ? handleTestPush : handleActivatePush}
+              disabled={isActivatingPush}
+              title={
+                pushStatus === 'granted'
+                  ? (language === 'ar' ? 'الإشعارات مفعّلة - انقر لتجربة النغمة' : 'Push notifications active - click to test')
+                  : (language === 'ar' ? 'تفعيل إشعارات الطلبيات على هذا الهاتف' : 'Enable mobile push notifications')
+              }
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
+                pushStatus === 'granted'
+                  ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/25'
+                  : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${pushStatus === 'granted' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span className="hidden sm:inline">
+                {pushStatus === 'granted'
+                  ? (language === 'ar' ? 'الإشعارات مفعّلة' : 'Notifications actives')
+                  : (language === 'ar' ? 'تفعيل الإشعارات' : 'Activer notifications')}
+              </span>
+            </button>
 
             {/* View Live Boutique */}
             <button
@@ -1740,6 +1962,116 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore }) => {
             transition={{ duration: 0.2 }}
             className="space-y-6"
           >
+            {/* ======================================================== */}
+            {/* HAUTE COUTURE MOBILE PUSH NOTIFICATIONS CENTER */}
+            {/* ======================================================== */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-800 text-white p-5 sm:p-6 shadow-xl border border-neutral-700/60">
+              <div className="absolute -top-12 -right-12 w-48 h-48 bg-orange/15 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 shadow-inner">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-orange animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">
+                        {language === 'ar'
+                          ? 'إشعارات الطلبيات الفورية على الهاتف (Web Push)'
+                          : language === 'fr'
+                          ? 'Notifications Push Mobiles en Temps Réel'
+                          : 'Real-Time Mobile Order Push Notifications'}
+                      </h2>
+                      {pushStatus === 'granted' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          {language === 'ar' ? 'مفعّلة على هذا الجهاز' : 'Activée sur cet appareil'}
+                        </span>
+                      ) : pushStatus === 'denied' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          {language === 'ar' ? 'محظورة بالمتصفح' : 'Bloquée par le navigateur'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {language === 'ar' ? 'غير مفعّلة بعد' : 'Non activée'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-300 max-w-2xl leading-relaxed">
+                      {language === 'ar'
+                        ? 'تصلك نغمة كريستالية فاخرة واهتزاز مع إشعار فوري باسم الزبون والولاية والمبلغ بمجرد تأكيد أي طلبية، حتى أثناء قفل شاشة الهاتف أو مغادرة المتصفح.'
+                        : language === 'fr'
+                        ? 'Recevez un carillon haute fidélité, vibration et notification instantanée dès confirmation d\'une commande, même écran verrouillé.'
+                        : 'Receive a crystal chime, vibration and instant notification as soon as an order is placed, even when your phone is locked.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Notification Action Controls */}
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  {pushStatus !== 'granted' && (
+                    <button
+                      type="button"
+                      onClick={handleActivatePush}
+                      disabled={isActivatingPush}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange hover:bg-orange/90 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange/20 transition-all hover:-translate-y-0.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isActivatingPush ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <span>{language === 'ar' ? 'جارٍ التفعيل...' : 'Activation...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                          <span>{language === 'ar' ? 'تفعيل الإشعارات على هذا الهاتف' : 'Activer sur ce téléphone'}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleTestPush}
+                    className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl border border-white/20 transition-all hover:-translate-y-0.5 cursor-pointer shadow-xs"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                    <span>{language === 'ar' ? 'تجربة النغمة والإشعار الآن' : 'Tester le carillon & notification'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Push Feedback Banners */}
+              {pushSuccessMsg && (
+                <div className="mt-4 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 text-xs flex items-center gap-2 animate-fadeIn">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-emerald-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>{pushSuccessMsg}</span>
+                </div>
+              )}
+
+              {pushErrorMsg && (
+                <div className="mt-4 p-3 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-200 text-xs flex items-center gap-2 animate-fadeIn">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-rose-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>{pushErrorMsg}</span>
+                </div>
+              )}
+            </div>
+
             {/* 4 Haute KPI Metric Cards (Interactive) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Metric 1: Total Orders (Clickable) */}

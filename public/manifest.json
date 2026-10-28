@@ -1,0 +1,27 @@
+{
+  "name": "Miee — أناقةٌ تشبهك",
+  "short_name": "Miee",
+  "description": "متجر أزياء وعبايات راقية في الجزائر",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0c0b",
+  "theme_color": "#121212",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/miee-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/miee-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
